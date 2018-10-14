@@ -1,0 +1,55 @@
+//
+//  ViewController.swift
+//  DYLabelDemo
+//
+//  Created by Salman Husain on 10/14/18.
+//  Copyright © 2018 Salman Husain. All rights reserved.
+//
+
+import UIKit
+
+class ViewController: UIViewController, DYLinkDelegate {
+//                                   ^^^^^^^^^^^^^^^^^^ note that we are implmenting DYLinkDelegate, this lets us recieve link touches/holds
+    
+    //MARK: DYLinkDelegate methods
+    
+    func didClickLink(label: DYLabel, link: DYLink) {
+        let alert = UIAlertController.init(title: "Link click", message: "Link \(link.url)", preferredStyle: UIAlertControllerStyle.alert)
+        alert.addAction(UIAlertAction.init(title: "Cancel", style: UIAlertAction.Style.cancel, handler: nil))
+        self.show(alert, sender: nil)
+    }
+    
+    func didLongPressLink(label: DYLabel, link: DYLink) {
+        let alert = UIAlertController.init(title: "Link long press", message: "Link \(link.url)", preferredStyle: UIAlertControllerStyle.alert)
+        alert.addAction(UIAlertAction.init(title: "Cancel", style: UIAlertAction.Style.cancel, handler: nil))
+        self.show(alert, sender: nil)
+    }
+    
+    //MARK: Creating the label
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        //Step 0: Get some attributed text. I'm using my library (named HTMLFastParse, also a drop in code library) to create it
+        let formatter = FormatToAttributedString.init()
+        let attributedString = formatter.attributedString(forHTML: "Link test <a href=\"https://google.com/first\">first</a> and another <a href=\"https://google.com/second\">link</a>.\n\nDynamic baseline/super <sup>script <sup>also <sup>works <sup>correctly</sup></sup></sup>")!
+        
+        //Step 2: Create the label
+        let label = DYLabel.init(attributedText: attributedString, backgroundColor: UIColor.white, frame: CGRect.zero)
+        
+        //Step 3: Size the label correctly, setup the frame
+        //Calculate the exact height of the text given a restricting width
+        let requiredSize = DYLabel.size(of: attributedString, width: self.view.frame.width, estimationHeight: 3000)
+        
+        //Step 4: Final configuration
+        label.frame = CGRect.init(x: 0, y: 40, width: requiredSize.width, height: requiredSize.height)
+        //Setup our delegate so we recieve clicks and holds
+        label.dyDelegate = self
+        
+        //Step 5: Add it to the view
+        self.view.addSubview(label)
+        
+        //and we're done!
+    }
+
+
+}
+
