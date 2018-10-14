@@ -12,6 +12,8 @@
 
 ## Using it
 
+Simply copy `DYLabel.swift` into your project. That's it!  
+
 Check out `ViewController.swift` in the demo for a crash-course on how to use DYLabel.
 
 A few key notes:
