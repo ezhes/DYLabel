@@ -71,7 +71,7 @@ class DYLabel: UIView {
     private let holdGesture = UILongPressGestureRecognizer()
     
     public weak var dyDelegate:DYLinkDelegate?
-    
+	
     var attributedText:NSAttributedString? {
         get {
             return __attributedText
@@ -82,7 +82,48 @@ class DYLabel: UIView {
             self.setNeedsDisplay()
         }
     }
-    
+	
+	//MARK: Tiling
+	//This code enables the view to be drawn in the background, in tiles. Huge performance win especially on large bodies of text
+	override class var layerClass: AnyClass {
+		return CATiledLayer.self
+	}
+	
+	
+	var tiledLayer: CATiledLayer {
+		return self.layer as! CATiledLayer
+	}
+	
+	//HACK: To get the background thread to stop yelling at me for doing reads when background rendering
+	//THIS IS UNSAFE!!!!
+	internal var __backgroundColor:UIColor? = UIColor.white
+	override var backgroundColor: UIColor? {
+		set (color) {
+			super.backgroundColor = color
+			__backgroundColor = color?.copy() as? UIColor
+		}
+		
+		get {
+			return __backgroundColor
+		}
+	}
+	
+	internal var __frame:CGRect = CGRect.zero
+	override var frame: CGRect {
+		set (frameIn) {
+			super.frame = frameIn
+			let screenHeight = UIScreen.main.bounds.height
+			let height = (frameIn.height < screenHeight) ? frameIn.height : screenHeight
+			tiledLayer.tileSize = CGSize.init(width: frameIn.width, height: height)
+			__frame = frameIn
+		}
+		
+		get {
+			return __frame
+		}
+	}
+	
+	
     //MARK: Life cycle
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -106,8 +147,11 @@ class DYLabel: UIView {
         backgroundColor = backgroundColorIn
         setupViews()
     }
-    
+	
     func setupViews() {
+		tiledLayer.levelsOfDetail = 1
+		tiledLayer.contentsScale = 1
+		
         isUserInteractionEnabled = true
         tapGesture.addTarget(self, action: #selector(DYLabel.labelTapped(_:)))
         holdGesture.addTarget(self, action: #selector(DYLabel.labelHeld(_:)))
@@ -337,21 +381,34 @@ class DYLabel: UIView {
         guard let ctx = UIGraphicsGetCurrentContext() else {
             fatalError()
         }
-        
-        //Blank the cell completely before drawing. Prevent empty grey line from being drawn
-        ctx.setFillColor((self.backgroundColor ?? UIColor.white).cgColor)
-        ctx.fill(CGRect.init(x: -20, y: -20, width: self.frame.size.width + 40, height: self.frame.height + 40))
-        
-        ctx.textMatrix = CGAffineTransform.identity
-        ctx.translateBy(x: 0, y: self.frame.size.height)
-        ctx.scaleBy(x: 1.0, y: -1.0)
-        if (attributedText != nil) {
-            drawText(context: ctx, attributedText: attributedText!)
-        }
+		
+		//Blank the cell completely before drawing. Prevent empty grey line from being drawn
+		ctx.setFillColor((__backgroundColor ?? UIColor.white).cgColor)
+		ctx.fill(CGRect.init(x: -20, y: -20, width: __frame.size.width + 40, height: __frame.height + 40))
+		
+		ctx.textMatrix = CGAffineTransform.identity
+		ctx.translateBy(x: 0, y: __frame.size.height)
+		ctx.scaleBy(x: 1.0, y: -1.0)
+		if (attributedText != nil) {
+			drawText(attributedText: attributedText!, shouldDraw: true, context: ctx, layoutRect: __frame, partialRect: rect, shouldStoreFrames: false)
+		}
+
+		
     }
-    
-    func drawText(attributedText: NSAttributedString, shouldDraw:Bool, context:CGContext?, layoutRect:CGRect,shouldStoreFrames:Bool) {
-        if (shouldStoreFrames) {
+	
+	
+	/// Draw the text or don't and just calculate the height
+	///
+	/// - Parameters:
+	///   - attributedText: Text to draw
+	///   - shouldDraw: If we should really draw it or just calculate heights
+	///   - context: Context to draw into or to pretend to draw in
+	///   - layoutRect: The layout size, or the total frame size
+	///   - partialRect: (REQUIRED WHEN DRAWING) the portion of text to actually render
+	///   - shouldStoreFrames: If the frames of various items (links, text, accessibilty elements) should be generated
+	func drawText(attributedText: NSAttributedString, shouldDraw:Bool, context:CGContext?, layoutRect:CGRect,partialRect:CGRect? = nil, shouldStoreFrames:Bool) {
+
+		if (shouldStoreFrames) {
             //Reset link, text storage arrays
             links = []
             text = []
@@ -415,8 +472,20 @@ class DYLabel: UIView {
                 //Move the draw head. Note that we're drawing from the unupdated drawYPositionFromOrigin. This is again thanks to CT cartisian plane where we draw from the bottom left of text too.
                 context?.textPosition = CGPoint.init(x: lineOrigins[lineIndex].x, y: drawYPositionFromOrigin)
                 if shouldDraw {
-                    //Draw!
-                    CTRunDraw(run, context!, CFRangeMake(0, 0))
+					if let partialRect = partialRect {
+						//Change our UI partialRect into a CT relative rect
+						let pBottomCorrected:CGFloat = layoutRect.height - partialRect.maxX;
+						let pTopCorrected:CGFloat = layoutRect.height - partialRect.minY;
+						
+						//Check if we're in bounds OR ALMOST IN BOUNDS. This almost part is very important as we want to render text that's cut in half by the tile. We have to pay for the render twice but it's still more effecient than doing the whole thing at once.
+						let minCondition = abs(drawYPositionFromOrigin - pBottomCorrected) < 10
+						let maxCondition = abs(drawYPositionFromOrigin - pTopCorrected) < 10
+						let centerCondition = pTopCorrected > drawYPositionFromOrigin || drawYPositionFromOrigin > pBottomCorrected
+						//If we're in any of our ranges, draw!
+						if (minCondition || maxCondition || centerCondition) {
+							CTRunDraw(run, context!, CFRangeMake(0, 0))
+						}
+					}
                 }
                 
                 if shouldStoreFrames {
@@ -446,18 +515,6 @@ class DYLabel: UIView {
             //Move our position because we've completed the drawing of the line which is at most `maxLineHeight`
             drawYPositionFromOrigin += maxLineHeight
         }
-        return
-    }
-    /// Draw text on a given context. Supports superscript using NSBaselineOffsetAttributeName
-    ///
-    /// This method works by drawing the text backwards (i.e. last line first). This is very very important because it's how we ensure superscripts don't overlap the text above it. In other words, we need to start from the bottom, get the height of the text we just drew, and then draw the next text above it. This could be done in a forward direction but you'd have to use lookahead which IMO is more work.
-    ///
-    /// If you have to modify on this, remember that CT uses a mathmatical origin (i.e. 0,0 is bottom left like a cartisian plane)
-    /// - Parameters:
-    ///   - context: A core graphics draw context
-    ///   - attributedText: An attributed string
-    func drawText(context:CGContext, attributedText: NSAttributedString) {
-        drawText(attributedText: attributedText, shouldDraw: true, context: context, layoutRect: bounds, shouldStoreFrames: false)
         return
     }
     
