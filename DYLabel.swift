@@ -29,6 +29,12 @@ class DYLink:DYText {
     }
 }
 
+/// A modified version of CATiledLayer which disables fade
+class CAFastFadeTileLayer:CATiledLayer {
+	override class func fadeDuration() -> CFTimeInterval {
+		return 0.0 // Normally it’s 0.25
+	}
+}
 
 /// An internal data structure used for tracking and interacting with this label by Voice Over
 class DYAccessibilityElement:UIAccessibilityElement {
@@ -86,12 +92,12 @@ class DYLabel: UIView {
 	//MARK: Tiling
 	//This code enables the view to be drawn in the background, in tiles. Huge performance win especially on large bodies of text
 	override class var layerClass: AnyClass {
-		return CATiledLayer.self
+		return CAFastFadeTileLayer.self
 	}
 	
 	
-	var tiledLayer: CATiledLayer {
-		return self.layer as! CATiledLayer
+	var tiledLayer: CAFastFadeTileLayer {
+		return self.layer as! CAFastFadeTileLayer
 	}
 	
 	//HACK: To get the background thread to stop yelling at me for doing reads when background rendering
