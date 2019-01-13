@@ -28,13 +28,13 @@ UIColor *defaultFontColor;
 UIColor *codeFontColor;
 UIColor *containerBackgroundColor;
 UIColor *quoteFontColor;
-UIColor *linkColor;
 
 //We pregenerate nested quotes up to four for speed, after that they're dynamically allocated
 NSMutableParagraphStyle *quoteParagraphStyle1;
 NSMutableParagraphStyle *quoteParagraphStyle2;
 NSMutableParagraphStyle *quoteParagraphStyle3;
 NSMutableParagraphStyle *quoteParagraphStyle4;
+NSMutableParagraphStyle *defaultParagraphStyle;
 
 //The most basic text font size
 CGFloat baseFontSize;
@@ -53,7 +53,6 @@ float quotePadding = 20.0;
     codeFontColor = [UIColor colorWithRed:255.0/255 green:0 blue:255.0/255 alpha:1];
     containerBackgroundColor = [UIColor colorWithRed:242.0/255 green:242.0/255 blue:242.0/255 alpha:1];
     quoteFontColor = [UIColor colorWithRed:119.0/255 green:119.0/255 blue:119.0/255 alpha:1];
-    linkColor = [UIColor colorWithRed:9.0/255 green:95.0/255 blue:255.0/255 alpha:1];
     defaultFontColor = [UIColor blackColor];
     
     //Prepare our common fonts once
@@ -85,6 +84,7 @@ float quotePadding = 20.0;
     quoteParagraphStyle2 = [self generateParagraphStyleAtLevel:2];
     quoteParagraphStyle3 = [self generateParagraphStyleAtLevel:3];
     quoteParagraphStyle4 = [self generateParagraphStyleAtLevel:4];
+    defaultParagraphStyle = [self defaultParagraphStyle];
 }
 
 
@@ -108,10 +108,24 @@ float quotePadding = 20.0;
 -(NSMutableParagraphStyle *)generateParagraphStyleAtLevel:(int)depth {
     NSMutableParagraphStyle *quoteParagraphStyle = [[NSMutableParagraphStyle alloc]init];
     CGFloat levelQuoteIndentPadding = quotePadding * depth;
+    [quoteParagraphStyle setParagraphSpacing:plainFont.lineHeight/4];
     [quoteParagraphStyle setHeadIndent:levelQuoteIndentPadding];
     [quoteParagraphStyle setFirstLineHeadIndent:levelQuoteIndentPadding];
     [quoteParagraphStyle setTailIndent:-levelQuoteIndentPadding];
     return quoteParagraphStyle;
+}
+
+
+/**
+ Generate the default paragraph style which should be applied to all text
+ 
+ @return Default paragraph style
+ */
+-(NSMutableParagraphStyle *)defaultParagraphStyle {
+    NSMutableParagraphStyle *style = [[NSMutableParagraphStyle alloc]init];
+    [style setParagraphSpacing:plainFont.lineHeight/4];
+    
+    return style;
 }
 
 
@@ -142,11 +156,13 @@ float quotePadding = 20.0;
     
     //Now apply our linear attributes to our attributed string
     NSMutableAttributedString *answer = [[NSMutableAttributedString alloc]initWithString:[NSString stringWithUTF8String:displayText]];
-    //Set the whole thing to plain by default
-    [answer addAttribute:NSFontAttributeName value:plainFont range:NSMakeRange(0, answer.length)];
-    //Set the whole text background to clear by default so that when we override with code or quote we go back to normal
-    [answer addAttribute:NSBackgroundColorAttributeName value:[UIColor clearColor] range:NSMakeRange(0, answer.length)];
     
+    //Add our default attributes
+    [answer addAttributes:@{
+                            NSFontAttributeName : plainFont,
+                            NSParagraphStyleAttributeName : defaultParagraphStyle,
+                            NSBackgroundColorAttributeName : [UIColor clearColor]
+                            } range:NSMakeRange(0, answer.length)];
     //Only format the string if we are sure that everything will line up (if our calculated visible is not the same as attributed sees, everything will be broken and likely will cause a crash
     if ([answer length] == numberOfHumanVisibleCharachters) {
         for (int i = 0; i < numberOfSimplifiedTags; i++) {
@@ -180,7 +196,6 @@ float quotePadding = 20.0;
         NSString *nsLinkURL = [NSString stringWithUTF8String:format.linkURL];
         if ([NSURL URLWithString:nsLinkURL] != nil) {
             [string addAttribute:NSLinkAttributeName value: nsLinkURL range:currentRange];
-            [string addAttribute:NSForegroundColorAttributeName value:linkColor range:currentRange];
         }
     }
     
@@ -304,8 +319,9 @@ float quotePadding = 20.0;
         [string addAttribute:NSFontAttributeName value:customFont range:currentRange];
     }
     
-    if (format.isCode == 0 && format.quoteLevel == 0 && format.linkURL == nil) {
+    if (format.isCode == 0 && format.quoteLevel == 0) {
         [string addAttribute:NSForegroundColorAttributeName value:defaultFontColor range:currentRange];
     }
 }
 @end
+

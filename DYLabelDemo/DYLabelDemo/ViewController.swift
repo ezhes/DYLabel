@@ -48,8 +48,30 @@ class ViewController: UIViewController, DYLinkDelegate {
         self.view.addSubview(label)
         
         //and we're done!
+        //Uncoment this line to show the debugging rects (useful for accessibility work when using the simulator)
+        //showRects(label: label)
     }
 
+    private func showRects(label:DYLabel) {
+        label.__enableFrameDebugMode = true
+        let _ = label.accessibilityElementCount()
+        for t in (label.__accessibilityElements ?? []).reversed() {
+            let f = label.convert(t.boundingRect, to: self.view)
+            let v = UIView.init(frame: f)
+            v.isUserInteractionEnabled = false
+            v.backgroundColor = getRandomColor(alpha: 0.5)
+            self.view.addSubview(v)
+        }
+    }
+    
+    private func getRandomColor(alpha:CGFloat) -> UIColor{
+        let randomRed:CGFloat = CGFloat(drand48())
+        let randomGreen:CGFloat = CGFloat(drand48())
+        let randomBlue:CGFloat = CGFloat(drand48())
+        
+        return UIColor(red: randomRed, green: randomGreen, blue: randomBlue, alpha: alpha)
+        
+    }
 
 }
 

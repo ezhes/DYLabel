@@ -69,6 +69,8 @@ class DYAccessibilityElement:UIAccessibilityElement {
 class DYLabel: UIView {
     internal var __attributedText:NSAttributedString?
     internal var __accessibilityElements:[DYAccessibilityElement]? = nil
+    var __enableFrameDebugMode = false
+
     
     var links:[DYLink]? = nil
     var text:[DYText]? = nil
@@ -198,7 +200,7 @@ class DYLabel: UIView {
     /// Calculate the frames of plain text, links, and accessibility elements (if needed)
     /// THIS IS AN EXPENSIVE OPERATION, especially if voice over is running. This method will attempt to skip itself automatically. If new data must be feteched, call `invalidate()`
     func fetchAttributedRectsIfNeeded() {
-        if links == nil || ( UIAccessibilityIsVoiceOverRunning() && __accessibilityElements == nil) {
+        if links == nil || ( UIAccessibilityIsVoiceOverRunning() && __accessibilityElements == nil) || self.__enableFrameDebugMode {
             UIGraphicsBeginImageContext(self.bounds.size)
             drawText(attributedText: attributedText!, shouldDraw: false, context: UIGraphicsGetCurrentContext()!, layoutRect: bounds, shouldStoreFrames: true)
             UIGraphicsEndImageContext()
@@ -208,42 +210,22 @@ class DYLabel: UIView {
             /// WARNING! THIS SUBROUTINE IS VERY EXPENSIVE! It compacts links and texts into a single array, sorts it (as the links and text arrays are not exactly "sorted"), and then generates new accessibility objects)
             //
             
-            if (UIAccessibilityIsVoiceOverRunning()) {
-                var items:[DYText] = links! + text!
-                items.sort { (a, b) -> Bool in
-                    return a.range.location < b.range.location
-                }
-                
-                let textContent = attributedText!.string as NSString
-                var lastIsText:Bool = (items.first is DYLink) == false
-                var frames:[CGRect] = []
-                var frameLabel = ""
-                var lastLinkItem:DYLink? = items.first as? DYLink
-                
-                for item in items {
-                    let currentIsText = (item is DYLink) == false
-                    if (lastIsText != currentIsText) {
-                        //We've changed frames, commit accesibility element
-                        if var finalRect = frames.first {
-                            for rect in frames {
-                                finalRect = finalRect.union(rect)
-                            }
-                            if frameLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-                                __accessibilityElements?.append(newAccessibilityElement(frame: finalRect, label: frameLabel, isPlainText: lastIsText, linkItem: lastLinkItem))
-                            }
-                        }
-                        
-                        lastIsText = currentIsText
-                        lastLinkItem = item as? DYLink
-                        frameLabel = ""
-                        frames = []
-                    }
-                    frameLabel.append(textContent.substring(with: NSRange.init(location: item.range.location, length: item.range.length)))
-                    frames.append(item.bounds)
-                }
-                
-                if frameLabel.isEmpty == false {
-                    //Commit all remaining
+            var items:[DYText] = links! + text!
+            items.sort { (a, b) -> Bool in
+                return a.range.location < b.range.location
+            }
+            
+            let textContent = attributedText!.string as NSString
+            var lastIsText:Bool = (items.first is DYLink) == false
+            var frames:[CGRect] = []
+            var frameLabel = ""
+            var lastLinkItem:DYLink? = items.first as? DYLink
+            var nextItemIsNewParagraph:Bool = false
+            for item in items {
+                let currentIsText = (item is DYLink) == false
+                if (lastIsText != currentIsText || nextItemIsNewParagraph) {
+                    nextItemIsNewParagraph = false
+                    //We've changed frames, commit accesibility element
                     if var finalRect = frames.first {
                         for rect in frames {
                             finalRect = finalRect.union(rect)
@@ -251,6 +233,27 @@ class DYLabel: UIView {
                         if frameLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
                             __accessibilityElements?.append(newAccessibilityElement(frame: finalRect, label: frameLabel, isPlainText: lastIsText, linkItem: lastLinkItem))
                         }
+                    }
+                    
+                    lastIsText = currentIsText
+                    lastLinkItem = item as? DYLink
+                    frameLabel = ""
+                    frames = []
+                }
+                
+                nextItemIsNewParagraph = textContent.substring(with: NSRange.init(location: item.range.location, length: item.range.length)).contains("\n")
+                frameLabel.append(textContent.substring(with: NSRange.init(location: item.range.location, length: item.range.length)))
+                frames.append(item.bounds)
+            }
+            
+            if frameLabel.isEmpty == false {
+                //Commit all remaining
+                if var finalRect = frames.first {
+                    for rect in frames {
+                        finalRect = finalRect.union(rect)
+                    }
+                    if frameLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                        __accessibilityElements?.append(newAccessibilityElement(frame: finalRect, label: frameLabel, isPlainText: lastIsText, linkItem: lastLinkItem))
                     }
                 }
             }

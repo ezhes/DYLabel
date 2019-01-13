@@ -2,10 +2,16 @@
 
 ![image](Images/Example.png)
 
+Superscript, links, and more!
+
+![image](Images/paragraph_frames.png)
+
+First class accessibility support with accurate text framing and paragraph based navigation!
+
 ## Features
 * Over 5.5x faster to size, layout, and draw than UILabel
 * Always provides an accurate line height (even with superscript, emoji, etc). This is very important as most others (TTTAttributedLabel, AttributedLabel, DTAttributedTextView, etc) often return inaccurate line heights with complex attributed strings. All, for example, fail in different ways with the demo above.
-* Supports VoiceOver and other accessibility technologies
+* Supports VoiceOver (with paragraph navigation) and other accessibility technologies
 * Supports hyperlinks (both clicking and press-and-hold)
 * Supports link font color customization through `NSForegroundColorAttributeName`
 * Supports iOS >=9
