@@ -202,7 +202,7 @@ class DYLabel: UIView {
     func fetchAttributedRectsIfNeeded() {
         if links == nil || ( UIAccessibilityIsVoiceOverRunning() && __accessibilityElements == nil) || self.__enableFrameDebugMode {
             UIGraphicsBeginImageContext(self.bounds.size)
-            drawText(attributedText: attributedText!, shouldDraw: false, context: UIGraphicsGetCurrentContext()!, layoutRect: bounds, shouldStoreFrames: true)
+            drawText(attributedText: attributedText!, shouldDraw: false, context: UIGraphicsGetCurrentContext(), layoutRect: bounds, shouldStoreFrames: true)
             UIGraphicsEndImageContext()
             
             //Accessibility element generation
