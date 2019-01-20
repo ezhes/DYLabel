@@ -468,7 +468,7 @@ class DYLabel: UIView {
                 //Convert the format range to something we can match to our string
                 let runRange = CTRunGetStringRange(run)
                 
-                let attributesAtPosition:NSDictionary = attributedText.attributes(at: runRange.location, effectiveRange: nil) as NSDictionary
+                let attributesAtPosition:NSDictionary = unsafeBitCast(CTRunGetAttributes(run), to: NSDictionary.self) as NSDictionary
                 var baselineAdjustment: CGFloat = 0.0
                 if let adjust = attributesAtPosition.object(forKey: NSAttributedStringKey.baselineOffset) as? NSNumber {
                     //We have a baseline offset!
@@ -575,10 +575,8 @@ class DYLabel: UIView {
             let glyphRunsCount = CFArrayGetCount(glyphRuns)
             for runIndex in 0..<glyphRunsCount {
                 let run = unsafeBitCast(CFArrayGetValueAtIndex(glyphRuns, runIndex), to: CTRun.self)
-                //Convert the format range to something we can match to our string
-                let runRange = CTRunGetStringRange(run)
                 
-                let attributesAtPosition:NSDictionary = attributedText.attributes(at: runRange.location, effectiveRange: nil) as NSDictionary
+                let attributesAtPosition:NSDictionary = unsafeBitCast(CTRunGetAttributes(run), to: NSDictionary.self) as NSDictionary
                 var baselineAdjustment: CGFloat = 0.0
                 if let adjust = attributesAtPosition.object(forKey: NSAttributedStringKey.baselineOffset) as? NSNumber {
                     //We have a baseline offset!
