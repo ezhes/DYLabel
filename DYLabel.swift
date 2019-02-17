@@ -38,7 +38,7 @@ class CAFastFadeTileLayer:CATiledLayer {
 
 /// An internal data structure used for tracking and interacting with this label by Voice Over
 class DYAccessibilityElement:UIAccessibilityElement {
-    unowned var superview:UIView
+    weak var superview:UIView?
     var boundingRect:CGRect
     
     
@@ -57,7 +57,11 @@ class DYAccessibilityElement:UIAccessibilityElement {
     /// Fix a bizzare bug? my issue? where the calculated frame is wrong later. YOU MUST SET BOUNDING RECT and superView
     override var accessibilityFrame: CGRect {
         get {
-            return UIAccessibilityConvertFrameToScreenCoordinates(boundingRect, superview)
+            if let superview = superview {
+                return UIAccessibility.convertToScreenCoordinates(boundingRect, in: superview)
+            }else {
+                return CGRect.zero
+            }
         }
         set{}
     }
@@ -189,7 +193,7 @@ class DYLabel: UIView {
     func newAccessibilityElement(frame:CGRect,label:String,isPlainText:Bool,linkItem:DYLink? = nil) -> DYAccessibilityElement {
         let accessibilityElement = DYAccessibilityElement.init(superview: self, boundingRect: frame, container: self)
         accessibilityElement.accessibilityValue = label
-        accessibilityElement.accessibilityTraits = isPlainText ? UIAccessibilityTraitStaticText : UIAccessibilityTraitLink
+        accessibilityElement.accessibilityTraits = isPlainText ? UIAccessibilityTraits.staticText : UIAccessibilityTraits.link
         accessibilityElement.link = linkItem
         
         
@@ -200,9 +204,11 @@ class DYLabel: UIView {
     /// Calculate the frames of plain text, links, and accessibility elements (if needed)
     /// THIS IS AN EXPENSIVE OPERATION, especially if voice over is running. This method will attempt to skip itself automatically. If new data must be feteched, call `invalidate()`
     func fetchAttributedRectsIfNeeded() {
-        if links == nil || ( UIAccessibilityIsVoiceOverRunning() && __accessibilityElements == nil) || self.__enableFrameDebugMode {
+        if links == nil || ( UIAccessibility.isVoiceOverRunning && __accessibilityElements == nil) || self.__enableFrameDebugMode {
+            guard let attributedText = attributedText else {return}
             UIGraphicsBeginImageContext(self.bounds.size)
-            drawText(attributedText: attributedText!, shouldDraw: false, context: UIGraphicsGetCurrentContext(), layoutRect: bounds, shouldStoreFrames: true)
+            guard let context = UIGraphicsGetCurrentContext() else {return}
+            drawText(attributedText: attributedText, shouldDraw: false, context: context, layoutRect: bounds, shouldStoreFrames: true)
             UIGraphicsEndImageContext()
             
             //Accessibility element generation
@@ -215,7 +221,7 @@ class DYLabel: UIView {
                 return a.range.location < b.range.location
             }
             
-            let textContent = attributedText!.string as NSString
+            let textContent = attributedText.string as NSString
             var lastIsText:Bool = (items.first is DYLink) == false
             var frames:[CGRect] = []
             var frameLabel = ""
@@ -275,7 +281,7 @@ class DYLabel: UIView {
         }
         
         //Voiceover doesn't always click "right" on the link but instead on the center of the rect. If VO is running, relax the hit box
-        if (UIAccessibilityIsVoiceOverRunning()) {
+        if (UIAccessibility.isVoiceOverRunning) {
             for accessibilityItem in __accessibilityElements! {
                 if let link = accessibilityItem.link, accessibilityItem.boundingRect.contains(point) {
                     return link
@@ -294,7 +300,11 @@ class DYLabel: UIView {
     }
     override var accessibilityFrame: CGRect {
         get {
-            return UIAccessibilityConvertFrameToScreenCoordinates(self.bounds, self.superview!)
+            if let superview = superview {
+                return UIAccessibility.convertToScreenCoordinates(self.bounds, in: superview)
+            }else {
+                return CGRect.zero
+            }
         }
         set {}
     }
@@ -470,7 +480,7 @@ class DYLabel: UIView {
                 
                 let attributesAtPosition:NSDictionary = unsafeBitCast(CTRunGetAttributes(run), to: NSDictionary.self) as NSDictionary
                 var baselineAdjustment: CGFloat = 0.0
-                if let adjust = attributesAtPosition.object(forKey: NSAttributedStringKey.baselineOffset) as? NSNumber {
+                if let adjust = attributesAtPosition.object(forKey: NSAttributedString.Key.baselineOffset) as? NSNumber {
                     //We have a baseline offset!
                     baselineAdjustment = CGFloat(adjust.floatValue)
                 }
@@ -502,7 +512,7 @@ class DYLabel: UIView {
                     let runBounds = convertCTRectToUI(rect: getCTRectFor(run: run, context: context!))
                     var item:DYText? = nil
                     
-                    if let url = attributesAtPosition.object(forKey: NSAttributedStringKey.link) {
+                    if let url = attributesAtPosition.object(forKey: NSAttributedString.Key.link) {
                         var link:DYLink? = nil
                         if let url = url as? URL {
                             link = DYLink.init(bounds: runBounds, url: url, range: runRange)
@@ -578,7 +588,7 @@ class DYLabel: UIView {
                 
                 let attributesAtPosition:NSDictionary = unsafeBitCast(CTRunGetAttributes(run), to: NSDictionary.self) as NSDictionary
                 var baselineAdjustment: CGFloat = 0.0
-                if let adjust = attributesAtPosition.object(forKey: NSAttributedStringKey.baselineOffset) as? NSNumber {
+                if let adjust = attributesAtPosition.object(forKey: NSAttributedString.Key.baselineOffset) as? NSNumber {
                     //We have a baseline offset!
                     baselineAdjustment = CGFloat(adjust.floatValue)
                 }

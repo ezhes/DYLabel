@@ -14,13 +14,13 @@ class ViewController: UIViewController, DYLinkDelegate {
     //MARK: DYLinkDelegate methods
     
     func didClickLink(label: DYLabel, link: DYLink) {
-        let alert = UIAlertController.init(title: "Link click", message: "Link \(link.url)", preferredStyle: UIAlertControllerStyle.alert)
+        let alert = UIAlertController.init(title: "Link click", message: "Link \(link.url)", preferredStyle: UIAlertController.Style.alert)
         alert.addAction(UIAlertAction.init(title: "Cancel", style: UIAlertAction.Style.cancel, handler: nil))
         self.show(alert, sender: nil)
     }
     
     func didLongPressLink(label: DYLabel, link: DYLink) {
-        let alert = UIAlertController.init(title: "Link long press", message: "Link \(link.url)", preferredStyle: UIAlertControllerStyle.alert)
+        let alert = UIAlertController.init(title: "Link long press", message: "Link \(link.url)", preferredStyle: UIAlertController.Style.alert)
         alert.addAction(UIAlertAction.init(title: "Cancel", style: UIAlertAction.Style.cancel, handler: nil))
         self.show(alert, sender: nil)
     }
