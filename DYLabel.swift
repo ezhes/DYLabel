@@ -311,7 +311,7 @@ class DYLabel: UIView {
     
     override func accessibilityElementCount() -> Int {
         fetchAttributedRectsIfNeeded()
-        return __accessibilityElements!.count
+        return __accessibilityElements?.count ?? 0
     }
     
     override func accessibilityElement(at index: Int) -> Any? {
@@ -319,7 +319,7 @@ class DYLabel: UIView {
             return nil
         }
         fetchAttributedRectsIfNeeded()
-        return __accessibilityElements![index]
+        return __accessibilityElements?[index]
     }
     
     override func index(ofAccessibilityElement element: Any) -> Int {
@@ -327,7 +327,7 @@ class DYLabel: UIView {
         guard let item = element as? DYAccessibilityElement else {
             return -1
         }
-        return __accessibilityElements!.firstIndex(of: item) ?? -1
+        return __accessibilityElements?.firstIndex(of: item) ?? -1
     }
     
     override var accessibilityElements: [Any]? {
