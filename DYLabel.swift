@@ -81,7 +81,10 @@ class DYLabel: UIView {
     
     private let tapGesture = UITapGestureRecognizer()
     private let holdGesture = UILongPressGestureRecognizer()
-    
+	
+	/// Should the accessibility label be split into paragraphs for plain text? Regardless of this setting, frames will start and stop for clickable links. (in other words, this is a "read the entire thing in one go" or "read by paragraph" setting)
+	public var shouldGenerateAccessibilityFramesForParagraphs:Bool = true
+	
     public weak var dyDelegate:DYLinkDelegate?
 	
     var attributedText:NSAttributedString? {
@@ -227,9 +230,11 @@ class DYLabel: UIView {
             var frameLabel = ""
             var lastLinkItem:DYLink? = items.first as? DYLink
             var nextItemIsNewParagraph:Bool = false
+			
             for item in items {
                 let currentIsText = (item is DYLink) == false
-                if (lastIsText != currentIsText || nextItemIsNewParagraph) {
+				//if shouldDYLabelParseIntoParagraphs is false, shortcircut the paragraph split mode so the entire thing (except links) is read in one go
+				if lastIsText != currentIsText || (nextItemIsNewParagraph && shouldGenerateAccessibilityFramesForParagraphs) {
                     nextItemIsNewParagraph = false
                     //We've changed frames, commit accesibility element
                     if var finalRect = frames.first {
