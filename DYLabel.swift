@@ -104,16 +104,18 @@ class DYLabel: UIView {
     
     //ONLY ACCESS THESE VARIABLES ON THE `dataUpdateQueue`!!
     internal var __attributedText:NSAttributedString?
+    internal var mainThreadAttributedText:NSAttributedString?
     internal var __frameSetter:CTFramesetter?
     
     /// Attributed text to draw
-    /// Warning!! This is not guarenteed to be up to date for reading! This is set in the background
+    /// Warning!! This is not guarenteed to be exactly the text that's currently display but instead what will be drawn
     var attributedText:NSAttributedString? {
         get {
-            return __attributedText
+            return mainThreadAttributedText
         }
         
         set (input) {
+            mainThreadAttributedText = input
             dataUpdateQueue.async {
                 [unowned self] in
                 self.__attributedText = input
