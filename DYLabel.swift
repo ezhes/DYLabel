@@ -71,7 +71,6 @@ class DYAccessibilityElement:UIAccessibilityElement {
 
 /// A custom, high performance label which provides both accessibility and FAST and ACCURATE height calculation
 class DYLabel: UIView {
-    internal var __attributedText:NSAttributedString?
     internal var __accessibilityElements:[DYAccessibilityElement]? = nil
     var __enableFrameDebugMode = false
 
@@ -81,64 +80,92 @@ class DYLabel: UIView {
     
     private let tapGesture = UITapGestureRecognizer()
     private let holdGesture = UILongPressGestureRecognizer()
-	
-	/// Should the accessibility label be split into paragraphs for plain text? Regardless of this setting, frames will start and stop for clickable links. (in other words, this is a "read the entire thing in one go" or "read by paragraph" setting)
-	public var shouldGenerateAccessibilityFramesForParagraphs:Bool = true
-	
+    
+    
+    /// Should the accessibility label be split into paragraphs for plain text? Regardless of this setting, frames will start and stop for clickable links. (in other words, this is a "read the entire thing in one go" or "read by paragraph" setting)
+    public var shouldGenerateAccessibilityFramesForParagraphs:Bool = true
+    
     public weak var dyDelegate:DYLinkDelegate?
-	
+    
+    
+    /// This is the queue used for reading and writing all __variables! DO NOT MODIFY THESE VALUES OUTSIDE OF THIS QUEUE!
+    internal let dataUpdateQueue = DispatchQueue(label:"DYLabel-data-update-queue",qos:.userInteractive)
+    
+    //MARK: Tiling
+    //This code enables the view to be drawn in the background, in tiles. Huge performance win especially on large bodies of text
+    override class var layerClass: AnyClass {
+        return CAFastFadeTileLayer.self
+    }
+    
+    
+    var tiledLayer: CAFastFadeTileLayer {
+        return self.layer as! CAFastFadeTileLayer
+    }
+    
+    //ONLY ACCESS THESE VARIABLES ON THE `dataUpdateQueue`!!
+    internal var __attributedText:NSAttributedString?
+    internal var __frameSetter:CTFramesetter?
+    
+    /// Attributed text to draw
+    /// Warning!! This is not guarenteed to be up to date for reading! This is set in the background
     var attributedText:NSAttributedString? {
         get {
             return __attributedText
         }
         
         set (input) {
-            __attributedText = input
+            dataUpdateQueue.async {
+                [unowned self] in
+                self.__attributedText = input
+                //invalidate the frame as we've reset
+                self.__frameSetter = nil
+                self.__frameSetterFrame = nil
+            }
             self.setNeedsDisplay()
         }
     }
-	
-	//MARK: Tiling
-	//This code enables the view to be drawn in the background, in tiles. Huge performance win especially on large bodies of text
-	override class var layerClass: AnyClass {
-		return CAFastFadeTileLayer.self
-	}
-	
-	
-	var tiledLayer: CAFastFadeTileLayer {
-		return self.layer as! CAFastFadeTileLayer
-	}
-	
-	//HACK: To get the background thread to stop yelling at me for doing reads when background rendering
-	//THIS IS UNSAFE!!!!
-	internal var __backgroundColor:UIColor? = UIColor.white
-	override var backgroundColor: UIColor? {
-		set (color) {
-			super.backgroundColor = color
-			__backgroundColor = color?.copy() as? UIColor
-		}
-		
-		get {
-			return __backgroundColor
-		}
-	}
-	
-	internal var __frame:CGRect = CGRect.zero
-	override var frame: CGRect {
-		set (frameIn) {
-			super.frame = frameIn
-			let screenHeight = UIScreen.main.bounds.height
-			let height = (frameIn.height < screenHeight) ? frameIn.height : screenHeight
-			tiledLayer.tileSize = CGSize.init(width: frameIn.width, height: height)
-			__frame = frameIn
-		}
-		
-		get {
-			return __frame
-		}
-	}
-	
-	
+    internal var __backgroundColor:UIColor? = UIColor.white
+    
+    /// The background color, non-transparent. This is guarenteed to be up to date
+    override var backgroundColor: UIColor? {
+        set (color) {
+            super.backgroundColor = color
+            dataUpdateQueue.async {
+                [unowned self] in
+                self.__backgroundColor = color?.copy() as? UIColor
+            }
+        }
+        
+        get {
+            return super.backgroundColor
+        }
+    }
+    
+    internal var __frame:CGRect = CGRect.zero
+    internal var __frameSetterFrame:CTFrame?
+    /// The frame. This is guarenteed to be up to date however it is not guarenteed that this value will be the actual drawn size as the frame is redrawn in the background. This may seem like an error however it is important for layout code that the frame return what it *will be* very soon rather (after a background process) than what it currently is
+    override var frame: CGRect {
+        set (frameIn) {
+            super.frame = frameIn
+            let screenHeight = UIScreen.main.bounds.height
+            let height = min(frameIn.height, screenHeight)
+            tiledLayer.tileSize = CGSize.init(width: frameIn.width, height: height)
+            
+            dataUpdateQueue.async {
+                [unowned self] in
+                self.__frame = frameIn
+                
+                //invalidate old frame
+                self.__frameSetterFrame = nil
+            }
+        }
+        
+        get {
+            return super.frame
+        }
+    }
+    
+    
     //MARK: Life cycle
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -162,11 +189,11 @@ class DYLabel: UIView {
         backgroundColor = backgroundColorIn
         setupViews()
     }
-	
+    
     func setupViews() {
-		tiledLayer.levelsOfDetail = 1
-		tiledLayer.contentsScale = 1
-		
+        tiledLayer.levelsOfDetail = 1
+        tiledLayer.contentsScale = 1
+        
         isUserInteractionEnabled = true
         tapGesture.addTarget(self, action: #selector(DYLabel.labelTapped(_:)))
         holdGesture.addTarget(self, action: #selector(DYLabel.labelHeld(_:)))
@@ -207,36 +234,61 @@ class DYLabel: UIView {
     /// Calculate the frames of plain text, links, and accessibility elements (if needed)
     /// THIS IS AN EXPENSIVE OPERATION, especially if voice over is running. This method will attempt to skip itself automatically. If new data must be feteched, call `invalidate()`
     func fetchAttributedRectsIfNeeded() {
-        if links == nil || ( UIAccessibility.isVoiceOverRunning && __accessibilityElements == nil) || self.__enableFrameDebugMode {
-            guard let attributedText = attributedText else {return}
-            UIGraphicsBeginImageContext(self.bounds.size)
-            guard let context = UIGraphicsGetCurrentContext() else {return}
-            drawText(attributedText: attributedText, shouldDraw: false, context: context, layoutRect: bounds, shouldStoreFrames: true)
-            UIGraphicsEndImageContext()
-            
-            //Accessibility element generation
-            //
-            /// WARNING! THIS SUBROUTINE IS VERY EXPENSIVE! It compacts links and texts into a single array, sorts it (as the links and text arrays are not exactly "sorted"), and then generates new accessibility objects)
-            //
-            
-            var items:[DYText] = links! + text!
-            items.sort { (a, b) -> Bool in
-                return a.range.location < b.range.location
-            }
-            
-            let textContent = attributedText.string as NSString
-            var lastIsText:Bool = (items.first is DYLink) == false
-            var frames:[CGRect] = []
-            var frameLabel = ""
-            var lastLinkItem:DYLink? = items.first as? DYLink
-            var nextItemIsNewParagraph:Bool = false
-			
-            for item in items {
-                let currentIsText = (item is DYLink) == false
-				//if shouldDYLabelParseIntoParagraphs is false, shortcircut the paragraph split mode so the entire thing (except links) is read in one go
-				if lastIsText != currentIsText || (nextItemIsNewParagraph && shouldGenerateAccessibilityFramesForParagraphs) {
-                    nextItemIsNewParagraph = false
-                    //We've changed frames, commit accesibility element
+        dataUpdateQueue.sync {
+            if links == nil || ( UIAccessibility.isVoiceOverRunning && __accessibilityElements == nil) || self.__enableFrameDebugMode {
+                guard let attributedText = attributedText else {return}
+                generateCoreTextCachesIfNeeded()
+
+                UIGraphicsBeginImageContext(self.bounds.size)
+                guard let context = UIGraphicsGetCurrentContext() else {return}
+                drawText(attributedText: attributedText, shouldDraw: false, context: context, layoutRect: bounds, shouldStoreFrames: true)
+                UIGraphicsEndImageContext()
+                
+                //Accessibility element generation
+                //
+                /// WARNING! THIS SUBROUTINE IS VERY EXPENSIVE! It compacts links and texts into a single array, sorts it (as the links and text arrays are not exactly "sorted"), and then generates new accessibility objects)
+                //
+                
+                var items:[DYText] = links! + text!
+                items.sort { (a, b) -> Bool in
+                    return a.range.location < b.range.location
+                }
+                
+                let textContent = attributedText.string as NSString
+                var lastIsText:Bool = (items.first is DYLink) == false
+                var frames:[CGRect] = []
+                var frameLabel = ""
+                var lastLinkItem:DYLink? = items.first as? DYLink
+                var nextItemIsNewParagraph:Bool = false
+                
+                for item in items {
+                    let currentIsText = (item is DYLink) == false
+                    //if shouldDYLabelParseIntoParagraphs is false, shortcircut the paragraph split mode so the entire thing (except links) is read in one go
+                    if lastIsText != currentIsText || (nextItemIsNewParagraph && shouldGenerateAccessibilityFramesForParagraphs) {
+                        nextItemIsNewParagraph = false
+                        //We've changed frames, commit accesibility element
+                        if var finalRect = frames.first {
+                            for rect in frames {
+                                finalRect = finalRect.union(rect)
+                            }
+                            if frameLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                                __accessibilityElements?.append(newAccessibilityElement(frame: finalRect, label: frameLabel, isPlainText: lastIsText, linkItem: lastLinkItem))
+                            }
+                        }
+                        
+                        lastIsText = currentIsText
+                        lastLinkItem = item as? DYLink
+                        frameLabel = ""
+                        frames = []
+                    }
+                    
+                    nextItemIsNewParagraph = textContent.substring(with: NSRange.init(location: item.range.location, length: item.range.length)).contains("\n")
+                    frameLabel.append(textContent.substring(with: NSRange.init(location: item.range.location, length: item.range.length)))
+                    frames.append(item.bounds)
+                }
+                
+                if frameLabel.isEmpty == false {
+                    //Commit all remaining
                     if var finalRect = frames.first {
                         for rect in frames {
                             finalRect = finalRect.union(rect)
@@ -245,30 +297,10 @@ class DYLabel: UIView {
                             __accessibilityElements?.append(newAccessibilityElement(frame: finalRect, label: frameLabel, isPlainText: lastIsText, linkItem: lastLinkItem))
                         }
                     }
-                    
-                    lastIsText = currentIsText
-                    lastLinkItem = item as? DYLink
-                    frameLabel = ""
-                    frames = []
-                }
-                
-                nextItemIsNewParagraph = textContent.substring(with: NSRange.init(location: item.range.location, length: item.range.length)).contains("\n")
-                frameLabel.append(textContent.substring(with: NSRange.init(location: item.range.location, length: item.range.length)))
-                frames.append(item.bounds)
-            }
-            
-            if frameLabel.isEmpty == false {
-                //Commit all remaining
-                if var finalRect = frames.first {
-                    for rect in frames {
-                        finalRect = finalRect.union(rect)
-                    }
-                    if frameLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-                        __accessibilityElements?.append(newAccessibilityElement(frame: finalRect, label: frameLabel, isPlainText: lastIsText, linkItem: lastLinkItem))
-                    }
                 }
             }
         }
+        
     }
     
     
@@ -400,50 +432,63 @@ class DYLabel: UIView {
         setNeedsDisplay()
     }
     
+    
+    /// Generate the framesetter and framesetter frame. CALL THIS ONLY FROM dataUpdateQueue!!!
+    func generateCoreTextCachesIfNeeded() {
+        guard let drawingAttributed = self.__attributedText else {return}
+        if self.__frameSetter == nil {
+            self.__frameSetter = CTFramesetterCreateWithAttributedString(drawingAttributed)
+        }
+        
+        if self.__frameSetterFrame == nil {
+            let path = CGPath(rect: self.__frame, transform: nil)
+            self.__frameSetterFrame = CTFramesetterCreateFrame(self.__frameSetter!, CFRangeMake(0, 0), path, nil)
+        }
+    }
+    
     override func draw(_ rect: CGRect) {
         //do not call super.draw(rect), not required
         guard let ctx = UIGraphicsGetCurrentContext() else {
             fatalError()
         }
-		
-		//Blank the cell completely before drawing. Prevent empty grey line from being drawn
-		ctx.setFillColor((__backgroundColor ?? UIColor.white).cgColor)
-		ctx.fill(CGRect.init(x: -20, y: -20, width: __frame.size.width + 40, height: __frame.height + 40))
-		
-		ctx.textMatrix = CGAffineTransform.identity
-		ctx.translateBy(x: 0, y: __frame.size.height)
-		ctx.scaleBy(x: 1.0, y: -1.0)
-		if (attributedText != nil) {
-			drawText(attributedText: attributedText!, shouldDraw: true, context: ctx, layoutRect: __frame, partialRect: rect, shouldStoreFrames: false)
-		}
-
-		
+        
+        dataUpdateQueue.sync {
+            [unowned self] in
+            if self.attributedText == nil {
+                return
+            }
+            generateCoreTextCachesIfNeeded()
+            //Blank the cell completely before drawing. Prevent empty grey line from being drawn
+            ctx.setFillColor((self.__backgroundColor ?? UIColor.white).cgColor)
+            ctx.fill(CGRect.init(x: -20, y: -20, width: self.__frame.size.width + 40, height: self.__frame.height + 40))
+            
+            ctx.textMatrix = CGAffineTransform.identity
+            ctx.translateBy(x: 0, y: self.__frame.size.height)
+            ctx.scaleBy(x: 1.0, y: -1.0)
+            if (self.__attributedText != nil) {
+                self.drawText(attributedText: self.__attributedText!, shouldDraw: true, context: ctx, layoutRect: self.__frame, partialRect: rect, shouldStoreFrames: false)
+            }
+        }
     }
-	
-	
-	/// Draw the text or don't and just calculate the height
-	///
-	/// - Parameters:
-	///   - attributedText: Text to draw
-	///   - shouldDraw: If we should really draw it or just calculate heights
-	///   - context: Context to draw into or to pretend to draw in
-	///   - layoutRect: The layout size, or the total frame size
-	///   - partialRect: (REQUIRED WHEN DRAWING) the portion of text to actually render
-	///   - shouldStoreFrames: If the frames of various items (links, text, accessibilty elements) should be generated
-	func drawText(attributedText: NSAttributedString, shouldDraw:Bool, context:CGContext?, layoutRect:CGRect,partialRect:CGRect? = nil, shouldStoreFrames:Bool) {
-
-		if (shouldStoreFrames) {
+    
+    
+    /// Draw the text or don't and just calculate the height
+    ///
+    /// - Parameters:
+    ///   - attributedText: Text to draw
+    ///   - shouldDraw: If we should really draw it or just calculate heights
+    ///   - context: Context to draw into or to pretend to draw in
+    ///   - layoutRect: The layout size, or the total frame size
+    ///   - partialRect: (REQUIRED WHEN DRAWING) the portion of text to actually render
+    ///   - shouldStoreFrames: If the frames of various items (links, text, accessibilty elements) should be generated
+    func drawText(attributedText: NSAttributedString, shouldDraw:Bool, context:CGContext?, layoutRect:CGRect,partialRect:CGRect? = nil, shouldStoreFrames:Bool) {
+        guard let frame = self.__frameSetterFrame else {return}
+        if (shouldStoreFrames) {
             //Reset link, text storage arrays
             links = []
             text = []
             __accessibilityElements = []
         }
-        
-        //Create our CT boiler plate
-        let framesetter = CTFramesetterCreateWithAttributedString(attributedText)
-        let textRect = layoutRect
-        let path = CGPath(rect: textRect, transform: nil)
-        let frame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, 0), path, nil)
         
         //Fetch our lines, bridging to swift from CFArray
         let lines:CFArray = CTFrameGetLines(frame)
@@ -468,7 +513,7 @@ class DYLabel: UIView {
         //Again, draw the lines in reverse so we don't need look ahead
         for lineIndex in (0..<lineCount).reversed()  {
             //Calculate the current line height so we can accurately move the position up later
-            let lastLinePosition = lineIndex > 0 ? lineOrigins[lineIndex - 1].y: textRect.height
+            let lastLinePosition = lineIndex > 0 ? lineOrigins[lineIndex - 1].y: layoutRect.height
             let currentLineHeight = lastLinePosition - lineOrigins[lineIndex].y
             //Throughout the loop below this variable will be updated to the tallest value for the current line
             var maxLineHeight:CGFloat = currentLineHeight
@@ -496,20 +541,20 @@ class DYLabel: UIView {
                 //Move the draw head. Note that we're drawing from the unupdated drawYPositionFromOrigin. This is again thanks to CT cartisian plane where we draw from the bottom left of text too.
                 context?.textPosition = CGPoint.init(x: lineOrigins[lineIndex].x, y: drawYPositionFromOrigin)
                 if shouldDraw {
-					if let partialRect = partialRect {
-						//Change our UI partialRect into a CT relative rect
-						let pBottomCorrected:CGFloat = layoutRect.height - partialRect.maxX;
-						let pTopCorrected:CGFloat = layoutRect.height - partialRect.minY;
-						
-						//Check if we're in bounds OR ALMOST IN BOUNDS. This almost part is very important as we want to render text that's cut in half by the tile. We have to pay for the render twice but it's still more effecient than doing the whole thing at once.
-						let minCondition = abs(drawYPositionFromOrigin - pBottomCorrected) < 10
-						let maxCondition = abs(drawYPositionFromOrigin - pTopCorrected) < 10
-						let centerCondition = pTopCorrected > drawYPositionFromOrigin || drawYPositionFromOrigin > pBottomCorrected
-						//If we're in any of our ranges, draw!
-						if (minCondition || maxCondition || centerCondition) {
-							CTRunDraw(run, context!, CFRangeMake(0, 0))
-						}
-					}
+                    if let partialRect = partialRect {
+                        //Change our UI partialRect into a CT relative rect
+                        let pBottomCorrected:CGFloat = layoutRect.height - partialRect.maxX;
+                        let pTopCorrected:CGFloat = layoutRect.height - partialRect.minY;
+                        
+                        //Check if we're in bounds OR ALMOST IN BOUNDS. This almost part is very important as we want to render text that's cut in half by the tile. We have to pay for the render twice but it's still more effecient than doing the whole thing at once.
+                        let minCondition = abs(drawYPositionFromOrigin - pBottomCorrected) < 10
+                        let maxCondition = abs(drawYPositionFromOrigin - pTopCorrected) < 10
+                        let centerCondition = pTopCorrected > drawYPositionFromOrigin || drawYPositionFromOrigin > pBottomCorrected
+                        //If we're in any of our ranges, draw!
+                        if (minCondition || maxCondition || centerCondition) {
+                            CTRunDraw(run, context!, CFRangeMake(0, 0))
+                        }
+                    }
                 }
                 
                 if shouldStoreFrames {
@@ -590,7 +635,6 @@ class DYLabel: UIView {
             let glyphRunsCount = CFArrayGetCount(glyphRuns)
             for runIndex in 0..<glyphRunsCount {
                 let run = unsafeBitCast(CFArrayGetValueAtIndex(glyphRuns, runIndex), to: CTRun.self)
-                
                 let attributesAtPosition:NSDictionary = unsafeBitCast(CTRunGetAttributes(run), to: NSDictionary.self) as NSDictionary
                 var baselineAdjustment: CGFloat = 0.0
                 if let adjust = attributesAtPosition.object(forKey: NSAttributedString.Key.baselineOffset) as? NSNumber {
