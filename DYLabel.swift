@@ -115,6 +115,10 @@ class DYLabel: UIView {
         }
         
         set (input) {
+            if mainThreadAttributedText == input {
+                //don't bother redrawing/invalidating all our frames if the text is exactly the same
+                return
+            }
             mainThreadAttributedText = input
             dataUpdateQueue.async {
                 [unowned self] in
