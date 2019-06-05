@@ -488,6 +488,13 @@ class DYLabel: UIView {
     ///   - partialRect: (REQUIRED WHEN DRAWING) the portion of text to actually render
     ///   - shouldStoreFrames: If the frames of various items (links, text, accessibilty elements) should be generated
     func drawText(attributedText: NSAttributedString, shouldDraw:Bool, context:CGContext?, layoutRect:CGRect,partialRect:CGRect? = nil, shouldStoreFrames:Bool) {
+        //on iOS 13, it seems like baseline adjustments are no longer enabled by default. Is this a beta bug? Who knows. 
+        let iOS13BetaCursorBaselineMoveScalar:CGFloat
+         if #available(iOS 13.0, *) {
+            iOS13BetaCursorBaselineMoveScalar = 1.0
+         }else {
+            iOS13BetaCursorBaselineMoveScalar = 0
+        }
         guard let frame = self.__frameSetterFrame else {return}
         if (shouldStoreFrames) {
             //Reset link, text storage arrays
@@ -545,7 +552,7 @@ class DYLabel: UIView {
                 //Check if this glyph run is tallest, and move it if it is
                 maxLineHeight = max(currentLineHeight + baselineAdjustment, maxLineHeight)
                 //Move the draw head. Note that we're drawing from the unupdated drawYPositionFromOrigin. This is again thanks to CT cartisian plane where we draw from the bottom left of text too.
-                context?.textPosition = CGPoint.init(x: lineOrigins[lineIndex].x, y: drawYPositionFromOrigin)
+                context?.textPosition = CGPoint.init(x: lineOrigins[lineIndex].x, y: drawYPositionFromOrigin + iOS13BetaCursorBaselineMoveScalar * baselineAdjustment)
                 if shouldDraw {
                     if let partialRect = partialRect {
                         //Change our UI partialRect into a CT relative rect
