@@ -23,6 +23,12 @@ struct t_format {
 	unsigned char exponentLevel;
 	unsigned char quoteLevel;
 	unsigned char hLevel;
+    unsigned char listNestLevel;
+    /*unsigned short LONG_DOUBLE_BUFFER_REMOVE2;
+    unsigned short LONG_DOUBLE_BUFFER_REMOVE4;
+    unsigned short LONG_DOUBLE_BUFFER_REMOVE6;
+    unsigned char LONG_DOUBLE_BUFFER_REMOVE7;*/
+    
 	char* linkURL;
 	
 	unsigned int startPosition;

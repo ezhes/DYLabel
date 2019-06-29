@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <limits.h>
 
 #include "C_HTML_Parser.h"
 #include "t_tag.h"
@@ -86,6 +87,8 @@ void tokenizeHTML(char input[],size_t inputLength,char displayText[], struct t_t
 	int stringVisiblePosition = 0;
 	
 	char previous = 0x00;
+    //The current index label (i.e. 1,2,3) of the list, USHRT_MAX for unordered
+    unsigned short currentListValue = 0x00;
 	
 	for (int i = 0; i < inputLength; i++) {
 		char current = input[i];
@@ -163,7 +166,31 @@ void tokenizeHTML(char input[],size_t inputLength,char displayText[], struct t_t
                     format.tag = newTagBuffer;
                     push(htmlTags,format);
                 }
+                
+                //Add textual descriptors for order/unordered lists
+                if (strncmp(newTagBuffer, "ol", 2) == 0) {
+                    //Ordered list
+                    currentListValue = 1;
+                }else if (strncmp(newTagBuffer, "ul", 2) == 0) {
+                    //Unordered list
+                    currentListValue = USHRT_MAX;
+                }else if (strncmp(newTagBuffer, "li", 2) == 0) {
+                    //Apply current list index
+                    if (currentListValue == USHRT_MAX) {
+                        stringVisiblePosition += 2;
+                        displayText[stringCopyPosition++] = 0xE2;
+                        displayText[stringCopyPosition++] = 0x80;
+                        displayText[stringCopyPosition++] = 0xA2;
+                        displayText[stringCopyPosition++] = ' ';
+                    }else {
+                        int written = sprintf(&displayText[stringCopyPosition], "%i. ",currentListValue);
+                        stringCopyPosition += written;
+                        stringVisiblePosition += written;
+                        currentListValue++;
+                    }
+                }
 			}
+            tagNameCopyPosition = 0;
 		}else if (current == '&') {
 			//We are starting an HTML entitiy;
 			isInHTMLEntity = true;
@@ -263,7 +290,7 @@ void tokenizeHTML(char input[],size_t inputLength,char displayText[], struct t_t
 }
 
 void print_t_format(struct t_format format) {
-	printf("Format [%i,%i): Bold %i, Italic %i, Struck %i, Code %i, Exponent %i, Quote %i, H%i, LinkURL %s\n",format.startPosition,format.endPosition,format.isBold,format.isItalics,format.isStruck,format.isCode,format.exponentLevel,format.quoteLevel,format.hLevel,format.linkURL);
+	printf("Format [%i,%i): Bold %i, Italic %i, Struck %i, Code %i, Exponent %i, Quote %i, H%i, ListNest %i LinkURL %s\n",format.startPosition,format.endPosition,format.isBold,format.isItalics,format.isStruck,format.isCode,format.exponentLevel,format.quoteLevel,format.hLevel,format.listNestLevel,format.linkURL);
 }
 
 
@@ -279,8 +306,10 @@ int t_format_cmp(struct t_format format1,struct t_format format2) {
 	//Tip from one of the LLVM people at WWDC`18
 	double format1Sum = *(((double*)&format1.isBold));
 	double format2Sum = *(((double*)&format2.isBold));
-	
-	if (format1Sum != format2Sum) {
+    //Get the next 8 bytes
+    //double format3Sum = *((1 + (double*)&format1.isBold));
+    //double format4Sum = *((1 + (double*)&format2.isBold));
+	if (format1Sum != format2Sum /*|| format3Sum != format4Sum*/) {
 		return 1;
 	}if (format1.linkURL != format2.linkURL || ((format1.linkURL != NULL && format2.linkURL == NULL) || (format2.linkURL != NULL && format1.linkURL == NULL)) || (format1.linkURL != NULL && format2.linkURL != NULL && strcmp(format1.linkURL, format2.linkURL) != 0)) {
 		return 1;
@@ -305,8 +334,7 @@ void makeAttributesLinear(struct t_tag inputTags[], int numberOfInputTags, struc
 	struct t_format *displayTextFormat = malloc(bufferSize);
 	//Init everything to zero in a single pass memory zero
 	memset(displayTextFormat, 0, bufferSize);
-	
-	
+
 	//Apply format from each tag
 	for (int i = 0; i < numberOfInputTags; i++) {
 		struct t_tag tag = inputTags[i];
@@ -374,7 +402,13 @@ void makeAttributesLinear(struct t_tag inputTags[], int numberOfInputTags, struc
 				free(url);
 			}
 			
-		}else {
+        }else if (strncmp(tagText, "ol", 2) == 0 || (strncmp(tagText, "ul", 2) == 0)) {
+            //Apply list intendation
+            for (int j = tag.startPosition; j < tag.endPosition; j++) {
+                displayTextFormat[j].listNestLevel++;
+            }
+        }
+        else {
 			printf("Unknown tag: %s\n",tagText);
 		}
 		

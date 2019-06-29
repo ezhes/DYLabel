@@ -398,22 +398,27 @@ class DYLabel: UIView {
     ///   - run: The run
     ///   - context: Context, used by CTRunGetImageBounds
     /// - Returns: A tight fitting, CT rect that fits around the run
-    func getCTRectFor(run:CTRun,context:CGContext) -> CGRect {
-        let imageBounds = CTRunGetImageBounds(run, context, CFRangeMake(0, 0))
-        if #available(iOS 11.0, *) {
-            //Non-bugged iOS, can assume the bounds are correct
-            return imageBounds
-        } else {
-            //<=iOS 10 has a bug with getting the frame of a run where it gives invalid x positions
-            //The CTRunGetPositionsPtr however works as expected and returns the correct position. We can take that value and substitute it
-            let runPositionsPointer = CTRunGetPositionsPtr(run)
-            if let runPosition = runPositionsPointer?.pointee {
-                return CGRect.init(x: runPosition.x, y: imageBounds.origin.y, width: imageBounds.width, height: imageBounds.height)
-            }else {
-                //FAILED TO OBTAIN RUN ORIGIN? FALL BACK.
-                return imageBounds
-            }
+    func getCTRectFor(run:CTRun, line:CTLine,origin:CGPoint,context:CGContext) -> CGRect {
+        let aP = UnsafeMutablePointer<CGFloat>.allocate(capacity: 1)
+        let dP = UnsafeMutablePointer<CGFloat>.allocate(capacity: 1)
+        let lP = UnsafeMutablePointer<CGFloat>.allocate(capacity: 1)
+        defer {
+            aP.deallocate()
+            dP.deallocate()
+            lP.deallocate()
         }
+        let width = CTRunGetTypographicBounds(run, CFRange.init(location: 0, length: 0), aP, dP, lP)
+        
+        let q = CTRunGetStringRange(run)
+        let xOffset = CTLineGetOffsetForStringIndex(line, q.location, nil)
+        var boundT = CGRect.zero
+        boundT.size.width = CGFloat(width)
+        boundT.size.height = aP.pointee + dP.pointee
+        boundT.origin.x = origin.x + CGFloat(xOffset)
+        boundT.origin.y = origin.y
+        boundT.origin.y -= dP.pointee
+        
+        return boundT
     }
     
     override func setNeedsLayout() {
@@ -540,6 +545,7 @@ class DYLabel: UIView {
                 let run = unsafeBitCast(CFArrayGetValueAtIndex(glyphRuns, runIndex), to: CTRun.self)
                 //Convert the format range to something we can match to our string
                 let runRange = CTRunGetStringRange(run)
+                var ctRect:CGRect? = nil
                 
                 let attributesAtPosition:NSDictionary = unsafeBitCast(CTRunGetAttributes(run), to: NSDictionary.self) as NSDictionary
                 var baselineAdjustment: CGFloat = 0.0
@@ -548,11 +554,9 @@ class DYLabel: UIView {
                     baselineAdjustment = CGFloat(adjust.floatValue)
                 }
                 
-                
-                //Check if this glyph run is tallest, and move it if it is
-                maxLineHeight = max(currentLineHeight + baselineAdjustment, maxLineHeight)
                 //Move the draw head. Note that we're drawing from the unupdated drawYPositionFromOrigin. This is again thanks to CT cartisian plane where we draw from the bottom left of text too.
-                context?.textPosition = CGPoint.init(x: lineOrigins[lineIndex].x, y: drawYPositionFromOrigin + iOS13BetaCursorBaselineMoveScalar * baselineAdjustment)
+                let drawXPositionFromOrigin:CGFloat = lineOrigins[lineIndex].x
+                context?.textPosition = CGPoint.init(x: drawXPositionFromOrigin, y: drawYPositionFromOrigin + iOS13BetaCursorBaselineMoveScalar * baselineAdjustment)
                 if shouldDraw {
                     if let partialRect = partialRect {
                         //Change our UI partialRect into a CT relative rect
@@ -567,12 +571,29 @@ class DYLabel: UIView {
                         if (minCondition || maxCondition || centerCondition) {
                             CTRunDraw(run, context!, CFRangeMake(0, 0))
                         }
+                        
+                        if let _ = attributesAtPosition.object(forKey: NSAttributedString.Key.strikethroughStyle) {
+                            if ctRect == nil {
+                                ctRect = getCTRectFor(run: run, line: line, origin: context!.textPosition, context: context!)
+                            }
+                            
+                            let strikeYPosition = ctRect!.minY + ctRect!.height/2
+                            context?.setLineWidth(1)
+                            
+                            context?.move(to: CGPoint.init(x: ctRect!.minX, y: strikeYPosition))
+                            context?.addLine(to: CGPoint.init(x: ctRect!.maxX, y: strikeYPosition))
+                            context?.strokePath()
+                        }
                     }
                 }
                 
                 if shouldStoreFrames {
+                    if ctRect == nil {
+                        ctRect = getCTRectFor(run: run, line: line, origin: context!.textPosition, context: context!)
+                    }
+                    
                     //Extract frames *after* moving the draw head
-                    let runBounds = convertCTRectToUI(rect: getCTRectFor(run: run, context: context!))
+                    let runBounds = convertCTRectToUI(rect: ctRect!)
                     var item:DYText? = nil
                     
                     if let url = attributesAtPosition.object(forKey: NSAttributedString.Key.link) {
@@ -592,6 +613,9 @@ class DYLabel: UIView {
                     }
                     
                 }
+                
+                //Check if this glyph run is tallest, and move it if it is
+                maxLineHeight = max(currentLineHeight + baselineAdjustment, maxLineHeight)
                 
             }
             //Move our position because we've completed the drawing of the line which is at most `maxLineHeight`

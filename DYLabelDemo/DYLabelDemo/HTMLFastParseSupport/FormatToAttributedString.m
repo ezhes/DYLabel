@@ -28,6 +28,7 @@ UIColor *defaultFontColor;
 UIColor *codeFontColor;
 UIColor *containerBackgroundColor;
 UIColor *quoteFontColor;
+UIColor *linkColor;
 
 //We pregenerate nested quotes up to four for speed, after that they're dynamically allocated
 NSMutableParagraphStyle *quoteParagraphStyle1;
@@ -53,13 +54,10 @@ float quotePadding = 20.0;
     codeFontColor = [UIColor colorWithRed:255.0/255 green:0 blue:255.0/255 alpha:1];
     containerBackgroundColor = [UIColor colorWithRed:242.0/255 green:242.0/255 blue:242.0/255 alpha:1];
     quoteFontColor = [UIColor colorWithRed:119.0/255 green:119.0/255 blue:119.0/255 alpha:1];
+    linkColor = [UIColor colorWithRed:9.0/255 green:95.0/255 blue:255.0/255 alpha:1];
     defaultFontColor = [UIColor blackColor];
     
     //Prepare our common fonts once
-    standardFontName = @"Avenir-Light";
-    boldFontName = @"Avenir-Heavy";
-    italicFontName = @"Avenir-BookOblique";
-    italicsBoldFontName = @"Avenir-HeavyOblique";
     codeFontName = @"CourierNewPSMT";
     [self prepareFonts];
     return self;
@@ -73,10 +71,16 @@ float quotePadding = 20.0;
     //Get the user's prefered fontsize from the system and use that as the base
     baseFontSize = [UIFont preferredFontForTextStyle:UIFontTextStyleBody].pointSize;
     
-    plainFont = [UIFont fontWithName:standardFontName size:baseFontSize];
-    boldFont = [UIFont fontWithName:boldFontName size:baseFontSize];
-    italicsFont = [UIFont fontWithName:italicFontName size:baseFontSize];
-    italicsBoldFont = [UIFont fontWithName:italicsBoldFontName size:baseFontSize];
+    UIFontDescriptor *fontDescriptor = [UIFontDescriptor preferredFontDescriptorWithTextStyle:UIFontTextStyleBody];
+    
+    
+    plainFont = [UIFont systemFontOfSize:baseFontSize weight:UIFontWeightRegular];
+    boldFont = [UIFont systemFontOfSize:baseFontSize weight:UIFontWeightBold];
+    italicsFont = [UIFont italicSystemFontOfSize:baseFontSize];
+    
+    UIFontDescriptor *boldItalicDescriptor = [fontDescriptor fontDescriptorWithSymbolicTraits:[fontDescriptor symbolicTraits] | UIFontDescriptorTraitBold | UIFontDescriptorTraitItalic];
+    italicsBoldFont = [UIFont fontWithDescriptor:boldItalicDescriptor size:baseFontSize];
+    
     codeFont = [UIFont fontWithName:codeFontName size:baseFontSize];
     
     //Cache high frequency quote depths (1-4), after these they'll be dynamically generated
@@ -192,21 +196,15 @@ float quotePadding = 20.0;
     //This is the range of the style
     NSRange currentRange = NSMakeRange(format.startPosition, format.endPosition-format.startPosition);
     
-    if (format.linkURL) {
-        NSString *nsLinkURL = [NSString stringWithUTF8String:format.linkURL];
-        if ([NSURL URLWithString:nsLinkURL] != nil) {
-            [string addAttribute:NSLinkAttributeName value: nsLinkURL range:currentRange];
-        }
-    }
-    
     if (format.isStruck) {
         [string addAttribute:NSStrikethroughStyleAttributeName value:[NSNumber numberWithInteger:NSUnderlineStyleSingle] range:currentRange];
     }
     
-    if (format.quoteLevel > 0) {
+    if (format.quoteLevel > 0 || format.listNestLevel - 1 > 0) {
         NSMutableParagraphStyle *quoteParagraphStyle;
         //We have the first four cached and after that we'll dynamically generate
-        switch (format.quoteLevel) {
+        unsigned char level = format.quoteLevel + format.listNestLevel - 1 > 0 ? format.listNestLevel - 1 : 0;
+        switch (level) {
             case 1:
                 quoteParagraphStyle = quoteParagraphStyle1;
                 break;
@@ -225,7 +223,18 @@ float quotePadding = 20.0;
                 break;
         }
         [string addAttribute:NSParagraphStyleAttributeName value:quoteParagraphStyle range:currentRange];
+    }
+    
+    if (format.quoteLevel > 0) {
         [string addAttribute:NSForegroundColorAttributeName value:quoteFontColor range:currentRange];
+    }
+    
+    if (format.linkURL) {
+        NSString *nsLinkURL = [NSString stringWithUTF8String:format.linkURL];
+        if ([NSURL URLWithString:nsLinkURL] != nil) {
+            [string addAttribute:NSLinkAttributeName value: nsLinkURL range:currentRange];
+            [string addAttribute:NSForegroundColorAttributeName value:linkColor range:currentRange];
+        }
     }
     
     
@@ -319,7 +328,7 @@ float quotePadding = 20.0;
         [string addAttribute:NSFontAttributeName value:customFont range:currentRange];
     }
     
-    if (format.isCode == 0 && format.quoteLevel == 0) {
+    if (format.isCode == 0 && format.quoteLevel == 0 && format.linkURL == nil) {
         [string addAttribute:NSForegroundColorAttributeName value:defaultFontColor range:currentRange];
     }
 }
