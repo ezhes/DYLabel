@@ -31,9 +31,9 @@ class DYLink:DYText {
 
 /// A modified version of CATiledLayer which disables fade
 class CAFastFadeTileLayer:CATiledLayer {
-	override class func fadeDuration() -> CFTimeInterval {
-		return 0.0 // Normally it’s 0.25
-	}
+    override class func fadeDuration() -> CFTimeInterval {
+        return 0.0 // Normally it’s 0.25
+    }
 }
 
 /// An internal data structure used for tracking and interacting with this label by Voice Over
@@ -121,11 +121,11 @@ class DYLabel: UIView {
             }
             mainThreadAttributedText = input
             dataUpdateQueue.async {
-                [unowned self] in
-                self.__attributedText = input
+                [weak self] in
+                self?.__attributedText = input
                 //invalidate the frame as we've reset
-                self.__frameSetter = nil
-                self.__frameSetterFrame = nil
+                self?.__frameSetter = nil
+                self?.__frameSetterFrame = nil
             }
             self.setNeedsDisplay()
         }
@@ -137,8 +137,8 @@ class DYLabel: UIView {
         set (color) {
             super.backgroundColor = color
             dataUpdateQueue.async {
-                [unowned self] in
-                self.__backgroundColor = color?.copy() as? UIColor
+                [weak self] in
+                self?.__backgroundColor = color?.copy() as? UIColor
             }
         }
         
@@ -158,11 +158,11 @@ class DYLabel: UIView {
             tiledLayer.tileSize = CGSize.init(width: frameIn.width, height: height)
             
             dataUpdateQueue.async {
-                [unowned self] in
-                self.__frame = frameIn
+                [weak self] in
+                self?.__frame = frameIn
                 
                 //invalidate old frame
-                self.__frameSetterFrame = nil
+                self?.__frameSetterFrame = nil
             }
         }
         
@@ -375,6 +375,7 @@ class DYLabel: UIView {
     
     override var accessibilityElements: [Any]? {
         get {
+            fetchAttributedRectsIfNeeded()
             return __accessibilityElements
         }
         set{}
@@ -464,7 +465,12 @@ class DYLabel: UIView {
         }
         
         dataUpdateQueue.sync {
-            [unowned self] in
+            [weak self] in
+            //If the dataqueue is blocked and the object is freed while waiting, we don't want to be referencing freed memory
+            guard let self = self else {
+                return
+            }
+            
             if self.attributedText == nil {
                 return
             }
@@ -493,11 +499,11 @@ class DYLabel: UIView {
     ///   - partialRect: (REQUIRED WHEN DRAWING) the portion of text to actually render
     ///   - shouldStoreFrames: If the frames of various items (links, text, accessibilty elements) should be generated
     func drawText(attributedText: NSAttributedString, shouldDraw:Bool, context:CGContext?, layoutRect:CGRect,partialRect:CGRect? = nil, shouldStoreFrames:Bool) {
-        //on iOS 13, it seems like baseline adjustments are no longer enabled by default. Is this a beta bug? Who knows. 
+        //on iOS 13, it seems like baseline adjustments are no longer enabled by default. Is this a beta bug? Who knows.
         let iOS13BetaCursorBaselineMoveScalar:CGFloat
-         if #available(iOS 13.0, *) {
+        if #available(iOS 13.0, *) {
             iOS13BetaCursorBaselineMoveScalar = 1.0
-         }else {
+        }else {
             iOS13BetaCursorBaselineMoveScalar = 0
         }
         guard let frame = self.__frameSetterFrame else {return}
@@ -578,10 +584,33 @@ class DYLabel: UIView {
                             }
                             
                             let strikeYPosition = ctRect!.minY + ctRect!.height/2
-                            context?.setLineWidth(1)
-                            
                             context?.move(to: CGPoint.init(x: ctRect!.minX, y: strikeYPosition))
                             context?.addLine(to: CGPoint.init(x: ctRect!.maxX, y: strikeYPosition))
+                            context?.strokePath()
+                        }
+                        
+                        if let _ = attributesAtPosition.object(forKey: DYLabel.Key.FullLineUnderLine) {
+                            if ctRect == nil {
+                                ctRect = getCTRectFor(run: run, line: line, origin: context!.textPosition, context: context!)
+                            }
+                            
+                            if let underlineColor = attributesAtPosition.object(forKey: DYLabel.Key.FullLineUnderLineColor) as? UIColor {
+                                context?.setStrokeColor(underlineColor.cgColor)
+                            }
+                            
+                            let strikeYPosition = ctRect!.minY
+                            let scale = UIScreen.main.scale
+                            
+                            let width = 1 / scale
+                            let offset = width / 2
+                            
+                            let yFinal:CGFloat = max(strikeYPosition - offset, width)
+                            context?.setLineWidth(width)
+                            
+                            context?.beginPath()
+                            
+                            context?.move(to: CGPoint.init(x: 0, y: yFinal))
+                            context?.addLine(to: CGPoint.init(x: self.frame.width, y: yFinal))
                             context?.strokePath()
                         }
                     }
@@ -689,10 +718,17 @@ class DYLabel: UIView {
         }
         return CGSize.init(width: width, height: drawYPositionFromOrigin)
     }
+    
+    public class Key {
+        /// Hacky addon to let you draw a line from the beneath  this text to from x=0 to x=max. You'll want to apply this to the line with the LOWEST basline for propper looks
+        public static let FullLineUnderLine = NSAttributedString.Key.init("DYLabel.FullLineUnderLineKey")
+        public static let FullLineUnderLineColor = NSAttributedString.Key.init("DYLabel.FullLineUnderLineColorKey")
+    }
 }
 
 protocol DYLinkDelegate : class {
     func didClickLink(label: DYLabel, link:DYLink);
     func didLongPressLink(label: DYLabel, link:DYLink);
 }
+
 
