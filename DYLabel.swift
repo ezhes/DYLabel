@@ -610,7 +610,7 @@ class DYLabel: UIView {
                             context?.beginPath()
                             
                             context?.move(to: CGPoint.init(x: 0, y: yFinal))
-                            context?.addLine(to: CGPoint.init(x: self.frame.width, y: yFinal))
+                            context?.addLine(to: CGPoint.init(x: layoutRect.width, y: yFinal))
                             context?.strokePath()
                         }
                     }
