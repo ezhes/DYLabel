@@ -1,5 +1,5 @@
 //
-//  DTLabel.swift
+//  DYLabel.swift
 //  Dystopia
 //
 //  Created by Salman Husain on 8/25/18.
@@ -89,7 +89,7 @@ class DYLabel: UIView {
     
     
     /// This is the queue used for reading and writing all __variables! DO NOT MODIFY THESE VALUES OUTSIDE OF THIS QUEUE!
-    internal let dataUpdateQueue = DispatchQueue(label:"DYLabel-data-update-queue",qos:.userInteractive)
+    internal let dataUpdateQueue:DispatchQueue? = DispatchQueue(label:"DYLabel-data-update-queue",qos:.userInteractive)
     
     //MARK: Tiling
     //This code enables the view to be drawn in the background, in tiles. Huge performance win especially on large bodies of text
@@ -120,7 +120,7 @@ class DYLabel: UIView {
                 return
             }
             mainThreadAttributedText = input
-            dataUpdateQueue.async {
+            dataUpdateQueue?.async {
                 [weak self] in
                 self?.__attributedText = input
                 //invalidate the frame as we've reset
@@ -136,7 +136,7 @@ class DYLabel: UIView {
     override var backgroundColor: UIColor? {
         set (color) {
             super.backgroundColor = color
-            dataUpdateQueue.async {
+            dataUpdateQueue?.async {
                 [weak self] in
                 self?.__backgroundColor = color?.copy() as? UIColor
             }
@@ -157,7 +157,7 @@ class DYLabel: UIView {
             let height = min(frameIn.height, screenHeight)
             tiledLayer.tileSize = CGSize.init(width: frameIn.width, height: height)
             
-            dataUpdateQueue.async {
+            dataUpdateQueue?.async {
                 [weak self] in
                 self?.__frame = frameIn
                 
@@ -240,7 +240,7 @@ class DYLabel: UIView {
     /// Calculate the frames of plain text, links, and accessibility elements (if needed)
     /// THIS IS AN EXPENSIVE OPERATION, especially if voice over is running. This method will attempt to skip itself automatically. If new data must be feteched, call `invalidate()`
     func fetchAttributedRectsIfNeeded() {
-        dataUpdateQueue.sync {
+        dataUpdateQueue?.sync {
             if links == nil || ( UIAccessibility.isVoiceOverRunning && __accessibilityElements == nil) || self.__enableFrameDebugMode {
                 guard let attributedText = attributedText else {return}
                 generateCoreTextCachesIfNeeded()
@@ -464,14 +464,10 @@ class DYLabel: UIView {
             fatalError()
         }
         
-        dataUpdateQueue.sync {
-            [weak self] in
-            //If the dataqueue is blocked and the object is freed while waiting, we don't want to be referencing freed memory
-            guard let self = self else {
-                return
-            }
+        dataUpdateQueue?.sync {
+            //explicitly capture self otherwise we can get some weird memory issues if we are deallocated
             
-            if self.attributedText == nil {
+            if self.__attributedText == nil {
                 return
             }
             generateCoreTextCachesIfNeeded()
