@@ -121,11 +121,10 @@ class DYLabel: UIView {
             }
             mainThreadAttributedText = input
             dataUpdateQueue?.async {
-                [weak self] in
-                self?.__attributedText = input
+                self.__attributedText = input
                 //invalidate the frame as we've reset
-                self?.__frameSetter = nil
-                self?.__frameSetterFrame = nil
+                self.__frameSetter = nil
+                self.__frameSetterFrame = nil
             }
             self.setNeedsDisplay()
         }
@@ -137,8 +136,7 @@ class DYLabel: UIView {
         set (color) {
             super.backgroundColor = color
             dataUpdateQueue?.async {
-                [weak self] in
-                self?.__backgroundColor = color?.copy() as? UIColor
+                self.__backgroundColor = color?.copy() as? UIColor
             }
         }
         
@@ -158,11 +156,10 @@ class DYLabel: UIView {
             tiledLayer.tileSize = CGSize.init(width: frameIn.width, height: height)
             
             dataUpdateQueue?.async {
-                [weak self] in
-                self?.__frame = frameIn
+                self.__frame = frameIn
                 
                 //invalidate old frame
-                self?.__frameSetterFrame = nil
+                self.__frameSetterFrame = nil
             }
         }
         
