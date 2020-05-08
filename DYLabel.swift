@@ -54,7 +54,7 @@ class DYAccessibilityElement:UIAccessibilityElement {
     }
     
     
-    /// Fix a bizzare bug? my issue? where the calculated frame is wrong later. YOU MUST SET BOUNDING RECT and superView
+    /// Fix a bizarre bug? my issue? where the calculated frame is wrong later. YOU MUST SET BOUNDING RECT and superView
     override var accessibilityFrame: CGRect {
         get {
             if let superview = superview {
@@ -108,7 +108,7 @@ class DYLabel: UIView {
     internal var __frameSetter:CTFramesetter?
     
     /// Attributed text to draw
-    /// Warning!! This is not guarenteed to be exactly the text that's currently display but instead what will be drawn
+    /// Warning!! This is not guaranteed to be exactly the text that's currently display but instead what will be drawn
     var attributedText:NSAttributedString? {
         get {
             return mainThreadAttributedText
@@ -131,7 +131,7 @@ class DYLabel: UIView {
     }
     internal var __backgroundColor:UIColor? = UIColor.white
     
-    /// The background color, non-transparent. This is guarenteed to be up to date
+    /// The background color, non-transparent. This is guaranteed to be up to date
     override var backgroundColor: UIColor? {
         set (color) {
             super.backgroundColor = color
@@ -147,7 +147,7 @@ class DYLabel: UIView {
     
     internal var __frame:CGRect = CGRect.zero
     internal var __frameSetterFrame:CTFrame?
-    /// The frame. This is guarenteed to be up to date however it is not guarenteed that this value will be the actual drawn size as the frame is redrawn in the background. This may seem like an error however it is important for layout code that the frame return what it *will be* very soon rather (after a background process) than what it currently is
+    /// The frame. This is guaranteed to be up to date however it is not guaranteed that this value will be the actual drawn size as the frame is redrawn in the background. This may seem like an error however it is important for layout code that the frame return what it *will be* very soon rather (after a background process) than what it currently is
     override var frame: CGRect {
         set (frameIn) {
             super.frame = frameIn
@@ -266,10 +266,10 @@ class DYLabel: UIView {
                 
                 for item in items {
                     let currentIsText = (item is DYLink) == false
-                    //if shouldDYLabelParseIntoParagraphs is false, shortcircut the paragraph split mode so the entire thing (except links) is read in one go
+                    //if shouldDYLabelParseIntoParagraphs is false, short-circuit the paragraph split mode so the entire thing (except links) is read in one go
                     if lastIsText != currentIsText || (nextItemIsNewParagraph && shouldGenerateAccessibilityFramesForParagraphs) {
                         nextItemIsNewParagraph = false
-                        //We've changed frames, commit accesibility element
+                        //We've changed frames, commit accessibility element
                         if var finalRect = frames.first {
                             for rect in frames {
                                 finalRect = finalRect.union(rect)
@@ -553,7 +553,7 @@ class DYLabel: UIView {
                     baselineAdjustment = CGFloat(adjust.floatValue)
                 }
                 
-                //Move the draw head. Note that we're drawing from the unupdated drawYPositionFromOrigin. This is again thanks to CT cartisian plane where we draw from the bottom left of text too.
+                //Move the draw head. Note that we're drawing from the un-updated drawYPositionFromOrigin. This is again thanks to CT cartesian plane where we draw from the bottom left of text too.
                 let drawXPositionFromOrigin:CGFloat = lineOrigins[lineIndex].x
                 context?.textPosition = CGPoint.init(x: drawXPositionFromOrigin, y: drawYPositionFromOrigin + iOS13BetaCursorBaselineMoveScalar * baselineAdjustment)
                 if shouldDraw {
@@ -652,9 +652,8 @@ class DYLabel: UIView {
     /// - Parameters:
     ///   - attributedText: The text to calculate the height of
     ///   - width: The constraining width
-    ///   - estimationHeight: Optional paramater, default 30,000px. This is the container height used to layout the text. DO NOT USE CGFLOATMAX AS IT CORE TEXT CANNOT CREATE A FRAME OF THAT SIZE.
-    /// - Returns: The size required to fit the text
-    static func size(of attributedText:NSAttributedString,width:CGFloat, estimationHeight:CGFloat?=30000) -> CGSize {
+    ///   - estimationHeight: The maximum (guessed) height of this text. If the text is taller than this, it will take multiple attempts to calculate (height doubles). There does not appear to be a performance drop for larger sizes, however the if this size is too large, older devices/iOS versions will yield invalid/too small heights due to CoreText weirdness.
+    static func size(of attributedText:NSAttributedString, width:CGFloat, estimationHeight:CGFloat?=30000) -> CGSize {
         let framesetter = CTFramesetterCreateWithAttributedString(attributedText)
         let textRect = CGRect.init(x: 0, y: 0, width: width, height: estimationHeight!)
         let path = CGPath(rect: textRect, transform: nil)
@@ -674,6 +673,16 @@ class DYLabel: UIView {
         var leading:CGFloat = 0
         if lineCount > 0 {
             let line = unsafeBitCast(CFArrayGetValueAtIndex(lines, lineCount - 1), to: CTLine.self)
+            let lastLineRange = CTLineGetStringRange(line)
+            let lastDrawnLength = lastLineRange.location + lastLineRange.length
+            if lastDrawnLength != attributedText.length {
+                //Estimation size is too small, try again!
+                let newEstimationHeight = estimationHeight * 2
+                print("Estimation size (\(estimationHeight)) too small by \(attributedText.length - lastDrawnLength) characters. Retrying with \(newEstimationHeight)!")
+                return size(of: attributedText, width: width, estimationHeight: newEstimationHeight)
+            }
+            
+
             CTLineGetTypographicBounds(line, &ascent, &descent, &leading)
         }
         
@@ -688,7 +697,7 @@ class DYLabel: UIView {
             //Throughout the loop below this variable will be updated to the tallest value for the current line
             var maxLineHeight:CGFloat = currentLineHeight
             
-            //Grab the current run glyph. This is used for attributed string interop
+            //Grab the current run glyph. This is used for attributed string interoperability
             let line = unsafeBitCast(CFArrayGetValueAtIndex(lines, lineIndex), to: CTLine.self)
             let glyphRuns = CTLineGetGlyphRuns(line)
             let glyphRunsCount = CFArrayGetCount(glyphRuns)
@@ -713,7 +722,7 @@ class DYLabel: UIView {
     }
     
     public class Key {
-        /// Hacky addon to let you draw a line from the beneath  this text to from x=0 to x=max. You'll want to apply this to the line with the LOWEST basline for propper looks
+        /// Hacky add-on to let you draw a line from the beneath  this text to from x=0 to x=max. You'll want to apply this to the line with the LOWEST baseline for proper looks
         public static let FullLineUnderLine = NSAttributedString.Key.init("DYLabel.FullLineUnderLineKey")
         public static let FullLineUnderLineColor = NSAttributedString.Key.init("DYLabel.FullLineUnderLineColorKey")
     }
