@@ -7,12 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2216827425DA784C008BBE7A /* DYLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2216827325DA784C008BBE7A /* DYLabel.swift */; };
 		22F34CFF2173F85600126C56 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22F34CFE2173F85600126C56 /* AppDelegate.swift */; };
 		22F34D012173F85600126C56 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22F34D002173F85600126C56 /* ViewController.swift */; };
 		22F34D042173F85600126C56 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 22F34D022173F85600126C56 /* Main.storyboard */; };
 		22F34D062173F85800126C56 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 22F34D052173F85800126C56 /* Assets.xcassets */; };
 		22F34D092173F85800126C56 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 22F34D072173F85800126C56 /* LaunchScreen.storyboard */; };
-		22F34D112173F87100126C56 /* DYLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22F34D102173F87100126C56 /* DYLabel.swift */; };
 		22F34D1D2173F8D800126C56 /* Stack.c in Sources */ = {isa = PBXBuildFile; fileRef = 22F34D132173F8D800126C56 /* Stack.c */; };
 		22F34D1E2173F8D800126C56 /* entities.c in Sources */ = {isa = PBXBuildFile; fileRef = 22F34D142173F8D800126C56 /* entities.c */; };
 		22F34D1F2173F8D800126C56 /* C_HTML_Parser.c in Sources */ = {isa = PBXBuildFile; fileRef = 22F34D152173F8D800126C56 /* C_HTML_Parser.c */; };
@@ -20,6 +20,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		2216827325DA784C008BBE7A /* DYLabel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DYLabel.swift; path = ../../Sources/DYLabel.swift; sourceTree = "<group>"; };
 		22F34CFB2173F85600126C56 /* DYLabelDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DYLabelDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		22F34CFE2173F85600126C56 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		22F34D002173F85600126C56 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -27,7 +28,6 @@
 		22F34D052173F85800126C56 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		22F34D082173F85800126C56 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		22F34D0A2173F85800126C56 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		22F34D102173F87100126C56 /* DYLabel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DYLabel.swift; path = ../../DYLabel.swift; sourceTree = "<group>"; };
 		22F34D122173F8D700126C56 /* DYLabelDemo-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "DYLabelDemo-Bridging-Header.h"; sourceTree = "<group>"; };
 		22F34D132173F8D800126C56 /* Stack.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Stack.c; sourceTree = "<group>"; };
 		22F34D142173F8D800126C56 /* entities.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = entities.c; sourceTree = "<group>"; };
@@ -73,7 +73,7 @@
 			children = (
 				22F34CFE2173F85600126C56 /* AppDelegate.swift */,
 				22F34D002173F85600126C56 /* ViewController.swift */,
-				22F34D102173F87100126C56 /* DYLabel.swift */,
+				2216827325DA784C008BBE7A /* DYLabel.swift */,
 				22F34D022173F85600126C56 /* Main.storyboard */,
 				22F34D052173F85800126C56 /* Assets.xcassets */,
 				22F34D072173F85800126C56 /* LaunchScreen.storyboard */,
@@ -176,7 +176,7 @@
 				22F34D1E2173F8D800126C56 /* entities.c in Sources */,
 				22F34D202173F8D800126C56 /* FormatToAttributedString.m in Sources */,
 				22F34D012173F85600126C56 /* ViewController.swift in Sources */,
-				22F34D112173F87100126C56 /* DYLabel.swift in Sources */,
+				2216827425DA784C008BBE7A /* DYLabel.swift in Sources */,
 				22F34D1D2173F8D800126C56 /* Stack.c in Sources */,
 				22F34CFF2173F85600126C56 /* AppDelegate.swift in Sources */,
 				22F34D1F2173F8D800126C56 /* C_HTML_Parser.c in Sources */,

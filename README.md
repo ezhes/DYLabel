@@ -18,7 +18,7 @@ First class accessibility support with accurate text framing and paragraph based
 
 ## Using it
 
-Simply copy `DYLabel.swift` into your project. That's it!  
+You have two options. First, you can simply add this repo as a Swift Package Manager package and import the `DYLabel` library. This is recommend so that you receive updates. Alternatively, you may simply copy `Sources/DYLabel.swift` into your project. And...that's it!
 
 Check out `ViewController.swift` in the demo for a crash-course on how to use DYLabel.
 

@@ -2,18 +2,18 @@
 //  DYLabel.swift
 //  Dystopia
 //
-//  Created by Salman Husain on 8/25/18.
-//  Copyright © 2018 Salman Husain. All rights reserved.
+//  Created by Allison Husain on 8/25/18.
+//  Copyright © 2018 Allison Husain. All rights reserved.
 //
 
 import Foundation
-
+import UIKit
 
 /// A representation of plain text being drawn by DYLabel
-class DYText {
-    var bounds:CGRect
-    var range:CFRange
-    init(bounds boundsIn:CGRect, range rangeIn:CFRange) {
+public class DYText {
+    public var bounds:CGRect
+    public var range:CFRange
+    public init(bounds boundsIn:CGRect, range rangeIn:CFRange) {
         bounds = boundsIn
         range = rangeIn
     }
@@ -21,9 +21,9 @@ class DYText {
 
 
 /// A representation of a link being drawn by DYLabel
-class DYLink:DYText {
-    var url:URL
-    init(bounds boundsIn:CGRect, url urlIn:URL, range rangeIn:CFRange) {
+public class DYLink:DYText {
+    public var url:URL
+    public init(bounds boundsIn:CGRect, url urlIn:URL, range rangeIn:CFRange) {
         url = urlIn
         super.init(bounds: boundsIn, range: rangeIn)
     }
@@ -70,13 +70,12 @@ class DYAccessibilityElement:UIAccessibilityElement {
 
 
 /// A custom, high performance label which provides both accessibility and FAST and ACCURATE height calculation
-class DYLabel: UIView {
+public class DYLabel: UIView {
     internal var __accessibilityElements:[DYAccessibilityElement]? = nil
-    var __enableFrameDebugMode = false
+    public var __enableFrameDebugMode = false
 
-    
-    var links:[DYLink]? = nil
-    var text:[DYText]? = nil
+    internal var links:[DYLink]? = nil
+    internal var text:[DYText]? = nil
     
     private let tapGesture = UITapGestureRecognizer()
     private let holdGesture = UILongPressGestureRecognizer()
@@ -93,7 +92,7 @@ class DYLabel: UIView {
     
     //MARK: Tiling
     //This code enables the view to be drawn in the background, in tiles. Huge performance win especially on large bodies of text
-    override class var layerClass: AnyClass {
+    public override class var layerClass: AnyClass {
         return CAFastFadeTileLayer.self
     }
     
@@ -109,7 +108,7 @@ class DYLabel: UIView {
     
     /// Attributed text to draw
     /// Warning!! This is not guaranteed to be exactly the text that's currently display but instead what will be drawn
-    var attributedText:NSAttributedString? {
+    public var attributedText:NSAttributedString? {
         get {
             return mainThreadAttributedText
         }
@@ -129,10 +128,11 @@ class DYLabel: UIView {
             self.setNeedsDisplay()
         }
     }
+    
     internal var __backgroundColor:UIColor? = UIColor.white
     
     /// The background color, non-transparent. This is guaranteed to be up to date
-    override var backgroundColor: UIColor? {
+    public override var backgroundColor: UIColor? {
         set (color) {
             super.backgroundColor = color
             dataUpdateQueue?.async {
@@ -148,7 +148,7 @@ class DYLabel: UIView {
     internal var __frame:CGRect = CGRect.zero
     internal var __frameSetterFrame:CTFrame?
     /// The frame. This is guaranteed to be up to date however it is not guaranteed that this value will be the actual drawn size as the frame is redrawn in the background. This may seem like an error however it is important for layout code that the frame return what it *will be* very soon rather (after a background process) than what it currently is
-    override var frame: CGRect {
+    public override var frame: CGRect {
         set (frameIn) {
             super.frame = frameIn
             let screenHeight = UIScreen.main.bounds.height
@@ -170,12 +170,12 @@ class DYLabel: UIView {
     
     
     //MARK: Life cycle
-    override init(frame: CGRect) {
+    public override init(frame: CGRect) {
         super.init(frame: frame)
         setupViews()
     }
     
-    required init?(coder aDecoder: NSCoder) {
+    public required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
         setupViews()
     }
@@ -185,7 +185,7 @@ class DYLabel: UIView {
     ///   - attributedTextIn: Attributed string to display
     ///   - backgroundColorIn: The background color to use. If a background color is set, blending can be disabled which gives a performance boost
     ///   - frame: The frame
-    convenience init(attributedText attributedTextIn:NSAttributedString, backgroundColor backgroundColorIn:UIColor?, frame:CGRect) {
+    public convenience init(attributedText attributedTextIn:NSAttributedString, backgroundColor backgroundColorIn:UIColor?, frame:CGRect) {
         self.init(frame: frame)
         self.attributedText = attributedTextIn
         
@@ -332,13 +332,14 @@ class DYLabel: UIView {
     }
     
     //MARK: Accessibility
-    override var isAccessibilityElement: Bool {
+    public override var isAccessibilityElement: Bool {
         get {
             return false
         }
         set {}
     }
-    override var accessibilityFrame: CGRect {
+    
+    public override var accessibilityFrame: CGRect {
         get {
             if let superview = superview {
                 return UIAccessibility.convertToScreenCoordinates(self.bounds, in: superview)
@@ -349,12 +350,12 @@ class DYLabel: UIView {
         set {}
     }
     
-    override func accessibilityElementCount() -> Int {
+    public override func accessibilityElementCount() -> Int {
         fetchAttributedRectsIfNeeded()
         return __accessibilityElements?.count ?? 0
     }
     
-    override func accessibilityElement(at index: Int) -> Any? {
+    public override func accessibilityElement(at index: Int) -> Any? {
         if (index >= __accessibilityElements?.count ?? 0) {
             return nil
         }
@@ -362,7 +363,7 @@ class DYLabel: UIView {
         return __accessibilityElements?[index]
     }
     
-    override func index(ofAccessibilityElement element: Any) -> Int {
+    public override func index(ofAccessibilityElement element: Any) -> Int {
         fetchAttributedRectsIfNeeded()
         guard let item = element as? DYAccessibilityElement else {
             return -1
@@ -370,7 +371,7 @@ class DYLabel: UIView {
         return __accessibilityElements?.firstIndex(of: item) ?? -1
     }
     
-    override var accessibilityElements: [Any]? {
+    public override var accessibilityElements: [Any]? {
         get {
             fetchAttributedRectsIfNeeded()
             return __accessibilityElements
@@ -419,12 +420,12 @@ class DYLabel: UIView {
         return boundT
     }
     
-    override func setNeedsLayout() {
+    public override func setNeedsLayout() {
         super.setNeedsLayout()
         invalidate()
     }
     
-    override func setNeedsDisplay() {
+    public override func setNeedsDisplay() {
         super.setNeedsDisplay()
         invalidate()
     }
@@ -437,7 +438,7 @@ class DYLabel: UIView {
         __accessibilityElements = nil
     }
     
-    override func layoutSubviews() {
+    public override func layoutSubviews() {
         setNeedsDisplay()
     }
     
@@ -455,7 +456,7 @@ class DYLabel: UIView {
         }
     }
     
-    override func draw(_ rect: CGRect) {
+    public override func draw(_ rect: CGRect) {
         //do not call super.draw(rect), not required
         guard let ctx = UIGraphicsGetCurrentContext() else {
             fatalError()
@@ -496,7 +497,7 @@ class DYLabel: UIView {
         let iOS13BetaCursorBaselineMoveScalar:CGFloat
         if #available(iOS 13.0, *) {
             iOS13BetaCursorBaselineMoveScalar = 1.0
-        }else {
+        } else {
             iOS13BetaCursorBaselineMoveScalar = 0
         }
         guard let frame = self.__frameSetterFrame else {return}
@@ -653,9 +654,9 @@ class DYLabel: UIView {
     ///   - attributedText: The text to calculate the height of
     ///   - width: The constraining width
     ///   - estimationHeight: The maximum (guessed) height of this text. If the text is taller than this, it will take multiple attempts to calculate (height doubles). There does not appear to be a performance drop for larger sizes, however the if this size is too large, older devices/iOS versions will yield invalid/too small heights due to CoreText weirdness.
-    static func size(of attributedText:NSAttributedString, width:CGFloat, estimationHeight:CGFloat?=30000) -> CGSize {
+    public static func size(of attributedText:NSAttributedString, width:CGFloat, estimationHeight:CGFloat = 30000) -> CGSize {
         let framesetter = CTFramesetterCreateWithAttributedString(attributedText)
-        let textRect = CGRect.init(x: 0, y: 0, width: width, height: estimationHeight!)
+        let textRect = CGRect.init(x: 0, y: 0, width: width, height: estimationHeight)
         let path = CGPath(rect: textRect, transform: nil)
         let frame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, 0), path, nil)
         
@@ -728,7 +729,7 @@ class DYLabel: UIView {
     }
 }
 
-protocol DYLinkDelegate : class {
+public protocol DYLinkDelegate : class {
     func didClickLink(label: DYLabel, link:DYLink);
     func didLongPressLink(label: DYLabel, link:DYLink);
 }

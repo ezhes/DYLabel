@@ -2,7 +2,7 @@
 //  C_HTML_Parser.c
 //  HTMLFastParse
 //
-//  Created by Salman Husain on 4/27/18.
+//  Created by Allison Husain on 4/27/18.
 //  Copyright © 2018 CarbonDev. All rights reserved.
 //
 #include <stdio.h>

@@ -2,8 +2,8 @@
 //  ViewController.swift
 //  DYLabelDemo
 //
-//  Created by Salman Husain on 10/14/18.
-//  Copyright © 2018 Salman Husain. All rights reserved.
+//  Created by Allison Husain on 10/14/18.
+//  Copyright © 2018 Allison Husain. All rights reserved.
 //
 
 import UIKit
