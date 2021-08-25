@@ -493,13 +493,16 @@ public class DYLabel: UIView {
     ///   - partialRect: (REQUIRED WHEN DRAWING) the portion of text to actually render
     ///   - shouldStoreFrames: If the frames of various items (links, text, accessibilty elements) should be generated
     func drawText(attributedText: NSAttributedString, shouldDraw:Bool, context:CGContext?, layoutRect:CGRect,partialRect:CGRect? = nil, shouldStoreFrames:Bool) {
-        //on iOS 13, it seems like baseline adjustments are no longer enabled by default. Is this a beta bug? Who knows.
         let iOS13BetaCursorBaselineMoveScalar:CGFloat
-        if #available(iOS 13.0, *) {
-            iOS13BetaCursorBaselineMoveScalar = 1.0
+        if #available(iOS 15.0, *) {
+            iOS13BetaCursorBaselineMoveScalar = 0
+        } else if #available(iOS 13.0, *) {
+            //on iOS 13-14, it seems like baseline adjustments are no longer enabled by default
+            iOS13BetaCursorBaselineMoveScalar = 1
         } else {
             iOS13BetaCursorBaselineMoveScalar = 0
         }
+        
         guard let frame = self.__frameSetterFrame else {return}
         if (shouldStoreFrames) {
             //Reset link, text storage arrays
