@@ -494,14 +494,22 @@ public class DYLabel: UIView {
     ///   - shouldStoreFrames: If the frames of various items (links, text, accessibilty elements) should be generated
     func drawText(attributedText: NSAttributedString, shouldDraw:Bool, context:CGContext?, layoutRect:CGRect,partialRect:CGRect? = nil, shouldStoreFrames:Bool) {
         let iOS13BetaCursorBaselineMoveScalar:CGFloat
+        let preiOS15StrikethroughPatch:Bool
         if #available(iOS 15.0, *) {
             iOS13BetaCursorBaselineMoveScalar = 0
-        } else if #available(iOS 13.0, *) {
-            //on iOS 13-14, it seems like baseline adjustments are no longer enabled by default
-            iOS13BetaCursorBaselineMoveScalar = 1
+            preiOS15StrikethroughPatch = false
         } else {
-            iOS13BetaCursorBaselineMoveScalar = 0
+            //on iOS <15, strikethrough was ignored by attributed strings.
+            //Later versions handle this correctly, but to get functional striking we need this
+            preiOS15StrikethroughPatch = true
+            if #available(iOS 13.0, *) {
+                //on iOS 13-14, it seems like baseline adjustments are no longer enabled by default
+                iOS13BetaCursorBaselineMoveScalar = 1
+            } else {
+                iOS13BetaCursorBaselineMoveScalar = 0
+            }
         }
+        
         
         guard let frame = self.__frameSetterFrame else {return}
         if (shouldStoreFrames) {
@@ -575,7 +583,7 @@ public class DYLabel: UIView {
                             CTRunDraw(run, context!, CFRangeMake(0, 0))
                         }
                         
-                        if let _ = attributesAtPosition.object(forKey: NSAttributedString.Key.strikethroughStyle) {
+                        if preiOS15StrikethroughPatch, let _ = attributesAtPosition.object(forKey: NSAttributedString.Key.strikethroughStyle) {
                             if ctRect == nil {
                                 ctRect = getCTRectFor(run: run, line: line, origin: context!.textPosition, context: context!)
                             }
