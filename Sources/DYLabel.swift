@@ -239,12 +239,17 @@ public class DYLabel: UIView {
     func fetchAttributedRectsIfNeeded() {
         dataUpdateQueue?.sync {
             if links == nil || ( UIAccessibility.isVoiceOverRunning && __accessibilityElements == nil) || self.__enableFrameDebugMode {
-                guard let attributedText = attributedText else {return}
+                guard let attributedText = attributedText else { return }
                 generateCoreTextCachesIfNeeded()
+                
+                let renderBounds = self.bounds
+                if renderBounds.size.height == 0 {
+                    return
+                }
 
                 UIGraphicsBeginImageContext(self.bounds.size)
-                guard let context = UIGraphicsGetCurrentContext() else {return}
-                drawText(attributedText: attributedText, shouldDraw: false, context: context, layoutRect: bounds, shouldStoreFrames: true)
+                guard let context = UIGraphicsGetCurrentContext() else { return }
+                drawText(attributedText: attributedText, shouldDraw: false, context: context, layoutRect: renderBounds, shouldStoreFrames: true)
                 UIGraphicsEndImageContext()
                 
                 //Accessibility element generation
